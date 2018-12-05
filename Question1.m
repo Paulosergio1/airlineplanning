@@ -16,6 +16,7 @@ function Multicommodity ()
     
     Demand      =   xlsread(filn,'Group 8', 'C15:V34');
     Airport_data=   xlsread(filn,'Group 8', 'C6:V9');
+    Airport_name=   xlsread(filn,'Group 8', 'C5:Z5'); 
     
     fleet       =   xlsread(filn,'Group 8', 'B12:F12');
     
@@ -41,7 +42,7 @@ function Multicommodity ()
         g(3,1)=0;
         
 %       Utilisation time in hours
-        time_used=10;
+        time_used=10*7;
         
         %Fuel price
         Fuel_price              = 1.42; %USD/gallon
@@ -83,7 +84,7 @@ function Multicommodity ()
         for k=1:k_ac
             for i =1:Nodes
                 for j = 1:Nodes                    % of the x_{ij}^k variables
-                    obj(l,1)    =   -(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data));
+                    obj(l,1)    =   -(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data)+ACData(7,k));
                     NameDV (l,:)  = ['z_' num2str(i,'%02d') ',' num2str(j,'%02d') ',' num2str(k, '%02d') ];
                     l = l + 1;
                 end
@@ -118,6 +119,9 @@ function Multicommodity ()
 %                 cplex.addRows(0, C2, Cap(i,j),sprintf('CapacityLink%d_%d_%d',i,j,k));
 %             end
 %         end
+
+        % Aurcraft cannot be used more than 10 hours a day, so 70 hours a
+        % weekr
         for k=1:k_ac
             C_time_ac=zeros(1,DV);
             for i=1:Nodes
@@ -192,6 +196,18 @@ function Multicommodity ()
             end
             cplex.addRows(0, C_slots, Airport_data(4,i), sprintf('slots%d',i));
         end
+        
+        %flow inside of airport should be equal to flow outside of airport
+        for k=1:k_ac
+            for i=1:Nodes
+                C_flow=zeros(1,DV);
+                for j=1:Nodes
+                    C_flow(varindex(i,j,k,'z',Nodes))=1;
+                    C_flow(varindex(j,i,k,'z',Nodes))=-1;
+                end
+                cplex.addRows(0, C_flow, 0, sprintf('flow%d_%d',i, k));
+            end
+        end
             
         
         
@@ -208,26 +224,25 @@ function Multicommodity ()
     status                      =   cplex.Solution.status;
     if status == 101 || status == 102 || status == 105  %http://www.ibm.com/support/knowledgecenter/SSSA5P_12.6.0/ilog.odms.cplex.help/refcallablelibrary/macros/Solution_status_codes.html
         sol.profit      =   cplex.Solution.objval;
-        for k = 1:Classes
-            sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k):varindex(Nodes, Nodes, k)), Nodes, Nodes))';
+        sol.values      =   cplex.Solution.x;
+        for k = 1:k_ac
+            sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
         end
     end
 %   Write output
     fprintf('\n-----------------------------------------------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link     From     To    Flow_Y   Flow_J   Total  (  Cap)    Cost \n');
+    fprintf ('Link     From     To    AC1   AC2   AC3   Total  (Demand)');
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
-            if Cost(i,j)<10000
-                NL      = NL + 1;
-                if sol.Flow(i,j,1)+sol.Flow(i,j,2)>0
-                    fprintf (' %2d \t  %s  \t  %s \t  %5d  %5d   %6d  (%5d)   %6d \n', NL, Airport{i}, ...
-                                Airport{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
-                                sol.Flow (i,j,1)+sol.Flow (i,j,2), Cap(i,j), ...
-                                Cost(i,j)*(sol.Flow (i,j,1)+sol.Flow (i,j,2)));
-                end
+            NL      = NL + 1;
+            if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
+                fprintf (' %2d \t  %s  \t  %s \t  %5d  %5d %5d %6d  (%5d) \n', NL, Airport_name{i}, ...
+                            Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
+                            sol.Flow (i,j,3), sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
+                            Demand(i,j));
             end
         end
     end
