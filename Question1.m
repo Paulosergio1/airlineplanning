@@ -40,6 +40,9 @@ function Multicommodity ()
         g=ones(Nodes,1);
         g(3,1)=0;
         
+%       Utilisation time in hours
+        time_used=10;
+        
         %Fuel price
         Fuel_price              = 1.42; %USD/gallon
         
@@ -94,25 +97,34 @@ function Multicommodity ()
         
     %%  Constraints
     %   Flow conservation at the nodes          
-        for i = 1:Nodes
-            for k = 1:Classes
-                C1      =   zeros(1, DV);    %Setting coefficient matrix with zeros
-                for j = 1:Nodes
-                    C1(varindex(i,j,k))   =    1;              %Link getting IN the node
-                    C1(varindex(j,i,k))   =   -1;              %Link getting OUT the node
+%         for i = 1:Nodes
+%             for k = 1:Classes
+%                 C1      =   zeros(1, DV);    %Setting coefficient matrix with zeros
+%                 for j = 1:Nodes
+%                     C1(varindex(i,j,k))   =    1;              %Link getting IN the node
+%                     C1(varindex(j,i,k))   =   -1;              %Link getting OUT the node
+%                 end
+%                 cplex.addRows(Flow(i,k), C1, Flow(i,k), sprintf('FlowBalanceNode%d_%d',i,k));
+%             end
+%         end
+%         
+%     %   Capacity per class in each link
+%         for i = 1:Nodes;
+%             for j = 1:Nodes;
+%                 C2      =   zeros(1, DV);       %Setting coefficient matrix with zeros
+%                 for k = 1:Classes;
+%                     C2(varindex(i,j,k))   =   1;      %Only the X_{i,j} (for both k) for the {i,j} pair under consideration
+%                 end
+%                 cplex.addRows(0, C2, Cap(i,j),sprintf('CapacityLink%d_%d_%d',i,j,k));
+%             end
+%         end
+        for k=1:k_ac
+            C_time_ac=zeros(1,DV);
+            for i=1:Nodes
+                for j=1:Nodes
+                    distance=arclen(i,j,Airport_data);
+                    
                 end
-                cplex.addRows(Flow(i,k), C1, Flow(i,k), sprintf('FlowBalanceNode%d_%d',i,k));
-            end
-        end
-        
-    %   Capacity per class in each link
-        for i = 1:Nodes;
-            for j = 1:Nodes;
-                C2      =   zeros(1, DV);       %Setting coefficient matrix with zeros
-                for k = 1:Classes;
-                    C2(varindex(i,j,k))   =   1;      %Only the X_{i,j} (for both k) for the {i,j} pair under consideration
-                end
-                cplex.addRows(0, C2, Cap(i,j),sprintf('CapacityLink%d_%d_%d',i,j,k));
             end
         end
         
@@ -154,9 +166,16 @@ function Multicommodity ()
     end
    
 end
-function out = varindex(m, n, p)
-    out = (m - 1) * Nodes + n + Nodes*Nodes*(p-1);  % Function given the variable index for each DV (i,j,k) [=(m,n,p)]  
-          %column       %row   %parallel matrixes (k=1 & k=2)
+function out = varindex(i,j,k,letter)
+    if letter == 'x'
+        out=(i-1)*nodes+j;
+    elseif letter == 'w'
+        out=(i-1)*nodes+j+nodes^2;
+    elseif letter == 'z'
+        out=(i-1)*nodes+j+nodes^2+(k-1)*nodes;
+    end   
+        % Function given the variable index for each DV (i,j,k) the letter
+        % denotes wheter you would like to have the variable x,w or z. 
 end
 
 
