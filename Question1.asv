@@ -152,7 +152,7 @@ function out = arclen(airport_i,airport_j,Airport_data)
     spheroid.SemimajorAxis = spheroid.SemimajorAxis;
     spheroid.SemiminorAxis = spheroid.SemiminorAxis;
     %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
-    out = (distance(Airport_data(1,airport_i), Airport_data(2,airport_i),Airport_data(1,airport_j), Airport_data(2,airport_j),spheroid))/1000;
+    out = (distance(Airport_data(1,airport_i), Airport_data(2,airport_i),Airport_data(1,airport_j), Airport_data(2,airport_j),spheroid));
 end
 
     
