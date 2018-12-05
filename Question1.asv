@@ -163,14 +163,12 @@ function Multicommodity ()
             for j = 1:Nodes
                 C_cap = zeros(1,DV);
                 C_cap(varindex(i,j,0,'x',Nodes)) = 1;
-                if g(j) == 0 || g(i) == 0
-                    for m = 1:Nodes
-                        C_cap(varindex(m,j,0,'w',Nodes)) = 1 - g(i);
-                        C_cap(varindex(i,m,0,'w',Nodes)) = 1 - g(j);
+                %for m = 1:Nodes
+                    C_cap(varindex(i,m,0,'w',Nodes)) = 1 - g(i);
+                    C_cap(varindex(m,j,0,'w',Nodes)) = 1 - g(j);
+                    for k = 1:k_ac
+                        C_cap(varindex(i,j,k,'z',Nodes)) = -ACData(2,k)*LF;
                     end
-                end
-                for k = 1:k_ac
-                    C_cap(varindex(i,j,k,'z',Nodes)) = -ACData(2,k)*LF;
                 end
                 cplex.addRows(-inf, C_cap,0,sprintf('ACcapacity%d_%d',i,j));
             end
