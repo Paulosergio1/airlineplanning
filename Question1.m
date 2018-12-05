@@ -127,29 +127,24 @@ function Multicommodity ()
             end
         end
     %   Passengers not more than demand
-    
-
         for i = 1:Nodes
             for j = 1:Nodes
                 C_dem = zeros(1,DV);
                 C_dem(varindex(i,j,0,'x',Nodes)) = 1;
                 C_dem(varindex(i,j,0,'w',Nodes)) = 1;
-                cplex.addRows(Demand(i,j), C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
+                cplex.addRows(0, C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
             end
             
         end
-
-        
-
-        
-        
+    
     %   No transfer if one the airports is hub 
         for i = 1:Nodes
-            C_w3     =   zeros(1, DV);
             for j = 1:Nodes
-                C_w3(varindex(i,j,'w',Nodes)) = 1;
+                C_hub     =   zeros(1, DV);
+                C_hub(varindex(i,j,0,'w',Nodes)) = 1;
+                hub_or_not = g(i) * g(j);
+                cplex.addRows(0, C_hub, Demand(i,j) * hub_or_not,sprintf('TransferHub%d_%d',i,j));
             end
-            cplex.addRows(0, C_w3, Demand(i,j) * g(i) * g(j),sprintf('TransferHub%d_%d_%d',i,j));
         end
         
         
