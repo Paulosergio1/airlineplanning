@@ -22,6 +22,7 @@ function Multicommodity ()
     Population  =   xlsread(filn,'General', 'B4:C27');
     GDOP        =   xlsread(filn,'General', 'F4:G27');
  
+    ACData      =   xlsread(filn,'Group 8', 'B116:F124');
     
     Nodes      =   length(Demand(1,:));
 
@@ -33,7 +34,10 @@ function Multicommodity ()
         cplex.Model.sense       =   'maximize';
 
 %       Number of aircraft types
-        k                       =   3;
+        k_ac                       =   3;
+        
+        %Fuel price
+        Fuel_price              = 1.42; %USD/gallon
         
 %   Decision variables
     
@@ -54,6 +58,7 @@ function Multicommodity ()
         l = 1;                                      % Array with DV names  (OPTIONAL, BUT HELPS READING THE .lp FILE)
         for i =1:Nodes
             for j = 1:Nodes                    % of the x_{ij}^k variables
+                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.43;
                 NameDV (l,:)  = ['X_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -61,15 +66,17 @@ function Multicommodity ()
         
         for i =1:Nodes
             for j = 1:Nodes                    % of the x_{ij}^k variables
+                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.43;
                 NameDV (l,:)  = ['W_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
         end
         
-        for k_ac=1:k
+        for k=1:k_ac
             for i =1:Nodes
                 for j = 1:Nodes                    % of the x_{ij}^k variables
-                    NameDV (l,:)  = ['z_' num2str(i,'%02d') ',' num2str(j,'%02d') ',' num2str(k_ac, '%02d') ];
+                    obj(l,1)    =   -(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data));
+                    NameDV (l,:)  = ['z_' num2str(i,'%02d') ',' num2str(j,'%02d') ',' num2str(k, '%02d') ];
                     l = l + 1;
                 end
             end
@@ -147,7 +154,7 @@ function out = varindex(m, n, p)
           %column       %row   %parallel matrixes (k=1 & k=2)
 end
 
-function out = distance(airport_i,airport_j)
+function out = arclen(airport_i,airport_j)
     out =1;
 end
 
