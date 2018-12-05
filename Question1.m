@@ -36,6 +36,10 @@ function Multicommodity ()
 %       Number of aircraft types
         k_ac                       =   3;
         
+%       Variable g which determines if the airport is a hub or not
+        g=ones(Nodes,1);
+        g(3,1)=0;
+        
         %Fuel price
         Fuel_price              = 1.42; %USD/gallon
         
@@ -49,6 +53,7 @@ function Multicommodity ()
         %   Decision variables
         DV=DV_Xnodes+DV_Wnodes+DV_Znodes;
         
+        
         obj                     =   ones(DV,1);
         lb                      =   zeros(DV, 1);                                 % Lower bounds
         ub                      =   inf(DV, 1);                                   % Upper bounds
@@ -58,7 +63,7 @@ function Multicommodity ()
         l = 1;                                      % Array with DV names  (OPTIONAL, BUT HELPS READING THE .lp FILE)
         for i =1:Nodes
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.43;
+                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043;
                 NameDV (l,:)  = ['X_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -66,7 +71,7 @@ function Multicommodity ()
         
         for i =1:Nodes
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.43;
+                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043;
                 NameDV (l,:)  = ['W_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -97,6 +102,18 @@ function Multicommodity ()
                     C1(varindex(j,i,k))   =   -1;              %Link getting OUT the node
                 end
                 cplex.addRows(Flow(i,k), C1, Flow(i,k), sprintf('FlowBalanceNode%d_%d',i,k));
+            end
+        end
+    %   Passengers not more than demand
+    
+        for k = 1:k_ac
+            for i = 1:Nodes
+                for j = 1:Nodes
+                    C_dem = zeros(1,DV);
+                    C_dem(varindex(i,j,k,'x')) = 1;
+                    C_dem(varindex(i,j,k,'w')) = 1;
+                end
+                cplex.addRows(Demand(i,j), C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
             end
         end
         
