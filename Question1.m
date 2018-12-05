@@ -111,6 +111,17 @@ function Multicommodity ()
             end
         end
         
+        
+    %   No transfer if one the airports is hub 
+        C_w3     =   zeros(1, DV);
+        for i = 1:Nodes
+            for j = 1:Nodes
+                C_w3(varindex(i,j,'w')) = 1;
+            end
+        end
+        cplex.addRows(0, C_w3, Demand(i,j) * g(i) * g(j),sprintf('TransferHub%d_%d_%d',i,j));
+            
+        
      %%  Execute model
         cplex.Param.mip.limits.nodes.Cur    = 1e+8;         %max number of nodes to be visited (kind of max iterations)
         cplex.Param.timelimit.Cur           = 3600;         %max time in seconds
