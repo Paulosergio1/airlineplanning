@@ -123,10 +123,24 @@ function Multicommodity ()
             for i=1:Nodes
                 for j=1:Nodes
                     distance=arclen(i,j,Airport_data);
-                    
                 end
             end
         end
+    %   Passengers not more than demand
+    
+
+        for i = 1:Nodes
+            for j = 1:Nodes
+                C_dem = zeros(1,DV);
+                C_dem(varindex(i,j,0,'x',Nodes)) = 1;
+                C_dem(varindex(i,j,0,'w',Nodes)) = 1;
+                cplex.addRows(Demand(i,j), C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
+            end
+            
+        end
+
+        
+
         
      %%  Execute model
         cplex.Param.mip.limits.nodes.Cur    = 1e+8;         %max number of nodes to be visited (kind of max iterations)
@@ -166,7 +180,7 @@ function Multicommodity ()
     end
    
 end
-function out = varindex(i,j,k,letter)
+function out = varindex(i,j,k,letter,nodes)
     if letter == 'x'
         out=(i-1)*nodes+j;
     elseif letter == 'w'
