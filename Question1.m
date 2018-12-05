@@ -123,8 +123,15 @@ function Multicommodity ()
             for i=1:Nodes
                 for j=1:Nodes
                     distance=arclen(i,j,Airport_data);
+                    TAT=ACData(3,k)/60;
+                    if g(j)==0
+                        TAT=max([1 TAT*2]);
+                    end
+                    C_time_ac(varindex(i,j,k,'z',Nodes))=distance/ACData(1,k)+TAT;
+                    rightvariable=time_used*fleet(k);
                 end
             end
+            cplex.addRows(0, C_time_ac, rightvariable, sprintf('Timeusedac%d',k));
         end
     %   Passengers not more than demand
     
@@ -134,7 +141,7 @@ function Multicommodity ()
                 C_dem = zeros(1,DV);
                 C_dem(varindex(i,j,0,'x',Nodes)) = 1;
                 C_dem(varindex(i,j,0,'w',Nodes)) = 1;
-                cplex.addRows(Demand(i,j), C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
+                cplex.addRows(0, C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
             end
             
         end
@@ -143,14 +150,14 @@ function Multicommodity ()
 
         
         
-    %   No transfer if one the airports is hub 
-        for i = 1:Nodes
-            C_w3     =   zeros(1, DV);
-            for j = 1:Nodes
-                C_w3(varindex(i,j,'w',Nodes)) = 1;
-            end
-            cplex.addRows(0, C_w3, Demand(i,j) * g(i) * g(j),sprintf('TransferHub%d_%d_%d',i,j));
-        end
+%     %   No transfer if one the airports is hub 
+%         for i = 1:Nodes
+%             C_transferhub    =   zeros(1, DV);
+%             for j = 1:Nodes
+%                 C_w3(varindex(i,j,'w',Nodes)) = 1;
+%             end
+%             cplex.addRows(0, C_w3, Demand(i,j) * g(i) * g(j),sprintf('TransferHub%d_%d_%d',i,j));
+%         end
         
         
      %%  Execute model
@@ -197,7 +204,7 @@ function out = varindex(i,j,k,letter,nodes)
     elseif letter == 'w'
         out=(i-1)*nodes+j+nodes^2;
     elseif letter == 'z'
-        out=(i-1)*nodes+j+nodes^2+(k-1)*nodes;
+        out=(i-1)*nodes+j+2*nodes^2+(k-1)*nodes^2;
     end   
         % Function given the variable index for each DV (i,j,k) the letter
         % denotes wheter you would like to have the variable x,w or z. 
