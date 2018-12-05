@@ -155,6 +155,45 @@ function Multicommodity ()
             end
         end
         
+        %Only aircraft with a long enough range can fly between two cities
+        for k=1:k_ac
+            for i=1:Nodes
+                for j=1:Nodes
+                    C_range=zeros(1,DV);
+                    distance=arclen(i,j,Airport_data);
+                    C_range(varindex(i,j,k,'z',Nodes))=1;
+                    if distance>ACData(4,k)
+                        cplex.addRows(0, C_range, 0, sprintf('range%d_%d_%d',i,j,k));
+                    end
+                end
+            end
+        end
+        
+       %Constraint for the runway length wich should be long enough. 
+        for k=1:k_ac
+            for i=1:Nodes
+                C_runway=zeros(1,DV);
+                if ACData(5,k)>Airport_data(3,i)
+                    for j=1:Nodes
+                        C_runway(varindex(i,j,k,'z',Nodes))=1;
+                    end
+                    cplex.addRows(0, C_runway, 0, sprintf('runway%d_%d',i,k));
+                end
+            end
+        end
+        
+        % Slots contraint
+        for i=1:Nodes
+            C_slots=zeros(1,DV);
+            for j=1:Nodes
+                for k=1:k_ac
+                   C_slots(varindex(i,j,k,'z',Nodes))=1;
+                end
+            end
+            cplex.addRows(0, C_slots, Airport_data(4,i), sprintf('slots%d',i));
+        end
+            
+        
         
      %%  Execute model
         cplex.Param.mip.limits.nodes.Cur    = 1e+8;         %max number of nodes to be visited (kind of max iterations)
