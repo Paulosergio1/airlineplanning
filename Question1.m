@@ -104,6 +104,18 @@ function Multicommodity ()
                 cplex.addRows(Flow(i,k), C1, Flow(i,k), sprintf('FlowBalanceNode%d_%d',i,k));
             end
         end
+    %   Passengers not more than demand
+    
+        for k = 1:k_ac
+            for i = 1:Nodes
+                for j = 1:Nodes
+                    C_dem = zeros(1,DV);
+                    C_dem(varindex(i,j,k,'x')) = 1;
+                    C_dem(varindex(i,j,k,'w')) = 1;
+                end
+                cplex.addRows(Demand(i,j), C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
+            end
+        end
         
     %   Capacity per class in each link
         for i = 1:Nodes;
