@@ -16,7 +16,7 @@ function Multicommodity ()
     
     Demand      =   xlsread(filn,'Group 8', 'C15:V34');
     Airport_data=   xlsread(filn,'Group 8', 'C6:V9');
-    Airport_name=   xlsread(filn,'Group 8', 'C5:Z5'); 
+    [~,Airport_name] =   xlsread(filn,'Group 8', 'C5:Z5'); 
     
     fleet       =   xlsread(filn,'Group 8', 'B12:F12');
     
@@ -70,7 +70,7 @@ function Multicommodity ()
         l = 1;                                      % Array with DV names  (OPTIONAL, BUT HELPS READING THE .lp FILE)
         for i =1:Nodes
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043;
+                obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
                 NameDV (l,:)  = ['X_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -78,7 +78,7 @@ function Multicommodity ()
         
         for i =1:Nodes
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = 5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043;
+                obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
                 NameDV (l,:)  = ['W_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -98,31 +98,13 @@ function Multicommodity ()
         cplex.addCols(obj, [], lb, ub, ctype, NameDV);
         cplex.writeModel([model '.lp']);
         
+    %%  Fixed cost calculation
+        fixed_cost=0;
+        for k=1:k_ac
+            fixed_cost=fixed_cost+fleet(k)*ACData(6,k);
+        end
         
     %%  Constraints
-    %   Flow conservation at the nodes          
-%         for i = 1:Nodes
-%             for k = 1:Classes
-%                 C1      =   zeros(1, DV);    %Setting coefficient matrix with zeros
-%                 for j = 1:Nodes
-%                     C1(varindex(i,j,k))   =    1;              %Link getting IN the node
-%                     C1(varindex(j,i,k))   =   -1;              %Link getting OUT the node
-%                 end
-%                 cplex.addRows(Flow(i,k), C1, Flow(i,k), sprintf('FlowBalanceNode%d_%d',i,k));
-%             end
-%         end
-%         
-%     %   Capacity per class in each link
-%         for i = 1:Nodes;
-%             for j = 1:Nodes;
-%                 C2      =   zeros(1, DV);       %Setting coefficient matrix with zeros
-%                 for k = 1:Classes;
-%                     C2(varindex(i,j,k))   =   1;      %Only the X_{i,j} (for both k) for the {i,j} pair under consideration
-%                 end
-%                 cplex.addRows(0, C2, Cap(i,j),sprintf('CapacityLink%d_%d_%d',i,j,k));
-%             end
-%         end
-
         % Aurcraft cannot be used more than 10 hours a day, so 70 hours a
         % weekr
         for k=1:k_ac
@@ -148,10 +130,7 @@ function Multicommodity ()
                 C_dem(varindex(i,j,0,'w',Nodes)) = 1;
                 cplex.addRows(0, C_dem, Demand(i,j), sprintf('DemandConstraint%d_%d',i,j));
             end
-            
         end
-       
-    
     %   No transfer if one the airports is hub 
         for i = 1:Nodes
             for j = 1:Nodes
@@ -230,10 +209,12 @@ function Multicommodity ()
                 cplex.addRows(0, C_flow, 0, sprintf('flow%d_%d',i, k));
             end
         end
+        
+        fixed_cost=0
+        for k=1:k_ac
+            fixed_cost=fixed_cost+fleet(k)*ACData(6,k);
+        end
             
-        
-
-        
      %%  Execute model
         cplex.Param.mip.limits.nodes.Cur    = 1e+8;         %max number of nodes to be visited (kind of max iterations)
         cplex.Param.timelimit.Cur           = 3600;         %max time in seconds
@@ -246,7 +227,7 @@ function Multicommodity ()
 %   Store direct results
     status                      =   cplex.Solution.status;
     if status == 101 || status == 102 || status == 105  %http://www.ibm.com/support/knowledgecenter/SSSA5P_12.6.0/ilog.odms.cplex.help/refcallablelibrary/macros/Solution_status_codes.html
-        sol.profit      =   cplex.Solution.objval;
+        sol.profit      =   cplex.Solution.objval-fixed_cost;
         sol.values      =   cplex.Solution.x;
         for k = 1:k_ac
             sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
@@ -260,8 +241,9 @@ function Multicommodity ()
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
-            NL      = NL + 1;
+            
             if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
+                NL      = NL + 1;
                 fprintf (' %2d \t  %s  \t  %s \t  %5d  %5d %5d %6d  (%5d) \n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
