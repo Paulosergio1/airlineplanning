@@ -31,9 +31,9 @@ xdata = [Pop2017 GDP2017 Airport_distance];
 ydata = Demand;
 a0 = [2 2 2 2];
 
-hybridopts = optimset('MaxFunEvals', 1200);
+hybridopts = optimset('MaxFunEvals', 10000, 'MaxIter', 5000);
 
-predicted = @(a,xdata) a(1) * ((xdata(:,1)*transpose(xdata(:,1)).^(a(2))) * (xdata(:,2)*transpose(xdata(:,2)).^(a(3)))) / ((1.42 * xdata(:,3:22)).^(a(4)));
+predicted = @(a,xdata) a(1) * ((xdata(:,1)*transpose(xdata(:,1)).^(a(2))) * (xdata(:,2)*transpose(xdata(:,2)).^(a(3)))) ./ ((1.42 * (xdata(:,3:22)+1e-8)).^(a(4)));
 [ahat,resnorm,residual,exitflag,output,lambda,jacobian] = lsqcurvefit(predicted,a0,xdata,ydata,[-Inf;-Inf;-Inf;-Inf],[Inf;Inf;Inf;Inf],hybridopts);
 
 
