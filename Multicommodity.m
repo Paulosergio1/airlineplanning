@@ -1,6 +1,6 @@
 function Multicommodity ()
 %%  Initialization
-    addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\matlab\x64_win64');
+    addpath('C:\ProgramFiles\IBM\ILOG\CPLEX_Studio128\cplex\matlab\x64_win64');
     savepath
     addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\examples\src\matlab');
     savepath
