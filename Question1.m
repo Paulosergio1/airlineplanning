@@ -26,7 +26,6 @@ function Multicommodity ()
     ACData      =   xlsread(filn,'Group 8', 'B116:F124');
     
     Nodes      =    length(Demand(1,:));
-
     
     %%  Initiate CPLEX model
 %   Create model
@@ -87,7 +86,7 @@ function Multicommodity ()
         for k=1:k_ac
             for i =1:Nodes
                 for j = 1:Nodes                    % of the x_{ij}^k variables
-                    if g(i)==0 || g(j)==3
+                    if g(i)==0 || g(j)==0
                        obj(l,1)    =   -0.7*(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data)+ACData(7,k));
                     else
                         obj(l,1)    =   -(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data)+ACData(7,k));
@@ -220,8 +219,8 @@ function Multicommodity ()
         end
             
      %%  Execute model
-        cplex.Param.mip.limits.nodes.Cur    = 1e+8;         %max number of nodes to be visited (kind of max iterations)
-        cplex.Param.timelimit.Cur           = 8*3600;         %max time in seconds
+        cplex.Param.mip.limits.nodes.Cur    = 1e+5;         %max number of nodes to be visited (kind of max iterations)
+        cplex.Param.timelimit.Cur           = 500;         %max time in seconds
         
 %   Run CPLEX
         cplex.solve();
@@ -277,13 +276,20 @@ function out = varindex(i,j,k,letter,nodes)
         % denotes wheter you would like to have the variable x,w or z. 
 end
 
-
+%{
 function out = arclen(airport_i,airport_j,Airport_data)
     spheroid = wgs84Ellipsoid;
     spheroid.SemimajorAxis = spheroid.SemimajorAxis;
     spheroid.SemiminorAxis = spheroid.SemiminorAxis;
     %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
     out = (distance(Airport_data(1,airport_i), Airport_data(2,airport_i),Airport_data(1,airport_j), Airport_data(2,airport_j),spheroid))/1000;
+end
+%}
+
+function out = arclen(airport_i,airport_j,Airport_data)
+    delta_sigma = 2*asin(sqrt((sin(deg2rad((Airport_data(1,airport_i)-Airport_data(1,airport_j))/2)))^2+cos(deg2rad(Airport_data(1,airport_i)))*cos(deg2rad(Airport_data(1,airport_j)))*(sin(deg2rad((Airport_data(2,airport_i)-Airport_data(2,airport_j))/2)))^2));
+    %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
+    out = 6371*delta_sigma;
 end
 
     
