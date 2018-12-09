@@ -25,7 +25,7 @@ function Multicommodity ()
  
     ACData      =   xlsread(filn,'Group 8', 'B116:F124');
     
-    Nodes      =   length(Demand(1,:));
+    Nodes      =    length(Demand(1,:));
 
     
     %%  Initiate CPLEX model
@@ -55,7 +55,7 @@ function Multicommodity ()
     %%  Objective Function
         DV_Xnodes                  =   Nodes*Nodes;
         DV_Wnodes                  =   Nodes*Nodes;
-        DV_Znodes                  =   Nodes*Nodes*3; 
+        DV_Znodes                  =   Nodes*Nodes*k_ac; 
 
         %   Decision variables
         DV=DV_Xnodes+DV_Wnodes+DV_Znodes;
@@ -87,7 +87,11 @@ function Multicommodity ()
         for k=1:k_ac
             for i =1:Nodes
                 for j = 1:Nodes                    % of the x_{ij}^k variables
-                    obj(l,1)    =   -(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data)+ACData(7,k));
+                    if g(i)==0 || g(j)==3
+                       obj(l,1)    =   -0.7*(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data)+ACData(7,k));
+                    else
+                        obj(l,1)    =   -(ACData(8,k)*arclen(i,j,Airport_data)/ACData(1,k)+ACData(9,k)*Fuel_price/(1.5)*arclen(i,j,Airport_data)+ACData(7,k));
+                    end
                     NameDV (l,:)  = ['z_' num2str(i,'%02d') ',' num2str(j,'%02d') ',' num2str(k, '%02d') ];
                     l = l + 1;
                 end
@@ -117,9 +121,9 @@ function Multicommodity ()
                         TAT=max([1 TAT*2]);
                     end
                     C_time_ac(varindex(i,j,k,'z',Nodes))=distance/ACData(1,k)+TAT;
-                    rightvariable=time_used*fleet(k);
                 end
             end
+            rightvariable=time_used*fleet(k);
             cplex.addRows(0, C_time_ac, rightvariable, sprintf('Timeusedac%d',k));
         end
     %   Passengers not more than demand
@@ -188,15 +192,15 @@ function Multicommodity ()
         end
         
         % Slots contraint
-        for i=1:Nodes
-            C_slots=zeros(1,DV);
-            for j=1:Nodes
-                for k=1:k_ac
-                   C_slots(varindex(i,j,k,'z',Nodes))=1;
-                end
-            end
-            cplex.addRows(0, C_slots, Airport_data(4,i), sprintf('slots%d',i));
-        end
+%         for i=1:Nodes
+%             C_slots=zeros(1,DV);
+%             for j=1:Nodes
+%                 for k=1:k_ac
+%                    C_slots(varindex(i,j,k,'z',Nodes))=1;
+%                 end
+%             end
+%             cplex.addRows(0, C_slots, Airport_data(4,i), sprintf('slots%d',i));
+%         end
         
         %flow inside of airport should be equal to flow outside of airport
         for k=1:k_ac
@@ -217,7 +221,7 @@ function Multicommodity ()
             
      %%  Execute model
         cplex.Param.mip.limits.nodes.Cur    = 1e+8;         %max number of nodes to be visited (kind of max iterations)
-        cplex.Param.timelimit.Cur           = 3600;         %max time in seconds
+        cplex.Param.timelimit.Cur           = 8*3600;         %max time in seconds
         
 %   Run CPLEX
         cplex.solve();
@@ -233,23 +237,31 @@ function Multicommodity ()
             sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
         end
     end
+    % Count the numbers of slots used
+    slots=zeros(Nodes,1);
 %   Write output
     fprintf('\n-----------------------------------------------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link     From     To    AC1   AC2   AC3   Total  (Demand)');
+    fprintf ('Link From   To         AC1    AC2   AC3    Total (Demand) \n');
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
-            
             if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
+                slots(i,1)=slots(i,1)+sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3);
                 NL      = NL + 1;
-                fprintf (' %2d \t  %s  \t  %s \t  %5d  %5d %5d %6d  (%5d) \n', NL, Airport_name{i}, ...
+                fprintf (' %2d  %s   %s  %5d  %5d %5d %6d  (%5d) \n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
                             Demand(i,j));
             end
         end
+    end
+    
+    fprintf('\n------------------------Slots-------------------------------------\n');
+    fprintf ('Used Available \n');
+    for i=1:Nodes
+        fprintf (' %2d       %5d     \n', slots(i,1), Airport_data(4,i));
     end
    
 end
