@@ -295,7 +295,7 @@ function Multicommodity ()
 %   Write output
     new_fleet=zeros(k_ac,1);
     for k=1:k_ac
-        new_fleet(k,1)=1-cplex.Solution.x(varindex(1,1,k,'s',Nodes),1)+cplex.Solution.x(varindex(1,1,k,'e',Nodes),1);
+        new_fleet(k,1)=fleet(k)-cplex.Solution.x(varindex(1,1,k,'s',Nodes),1)+cplex.Solution.x(varindex(1,1,k,'e',Nodes),1);
     end
     
     
@@ -308,16 +308,17 @@ function Multicommodity ()
     fprintf('\n----------------------------Network operate-------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link From   To         AC1    AC2   AC3    Total (Demand) \n');
+    fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Demand) \n');
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
             if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
                 slots(i,1)=slots(i,1)+sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3);
                 NL      = NL + 1;
-                fprintf (' %2d  %s   %s  %5d  %5d %5d %6d  (%5d) \n', NL, Airport_name{i}, ...
+                fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d) \n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
-                            sol.Flow (i,j,3), sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
+                            sol.Flow (i,j,3), sol.Flow (i,j,4), sol.Flow(i,j,5), ...
+                            sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
                             Demand(i,j));
             end
         end
@@ -329,6 +330,14 @@ function Multicommodity ()
         fprintf (' %2d       %5d     \n', slots(i,1), Airport_data(4,i));
     end
    
+    %% Write frequency to excel file in the group8-data tab
+
+    for i=1:Nodes
+        for j=1:Nodes
+            sol.Flow(i,j,k_ac+1)=sum(sol.Flow(i,j,1:k_ac));
+        end
+    end
+    xlswrite(filn,sol.Flow(:,:,6),'Group8-data')
 end
 function out = varindex(i,j,k,letter,nodes)
     if letter == 'x'
