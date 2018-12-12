@@ -10,9 +10,8 @@ warning('off','MATLAB:xlswrite:NoCOMServer')
 filn        =   [pwd '/AE4423_Datasheets.xlsx'];
 filn2       =   [pwd '/Group8_results.xlsx'];
 
-Demand               =   xlsread(filn,'Group 8', 'C15:V34');
-Airport_data         =   xlsread(filn,'Group 8', 'C6:V9');
-Airport_data_incl_US =   xlsread(filn,'Group 8', 'C6:Z9');
+Demand         =   xlsread(filn,'Group 8', 'C15:V34');
+Airport_data   =   xlsread(filn,'Group 8', 'C6:Z9');
 
 
 Pop2010_incl_US    =   xlsread(filn,'General', 'B4:B27')/1000;
@@ -30,7 +29,7 @@ fuelfactor2022 = 1.6;
  Airport_distance_incl_US = zeros(24,24); 
 for i = 1:24
     for j = 1:24
-        airportDistance_ij = arclen(i,j,Airport_data_incl_US);
+        airportDistance_ij = arclen(i,j,Airport_data);
         if airportDistance_ij ~= Inf
             Airport_distance_incl_US(i,j) = airportDistance_ij;
         end
@@ -98,7 +97,7 @@ end
 
 
 %%  Write ouput to excel file
-xlswrite(filn2,demandEstimates2022,'Demands2022')
+xlswrite(filn2,round(demandEstimates2022),'Demands2022')
 
 %% Function for determining the great circle distance between two airports
 function out = arclen(airport_i,airport_j,Airport_data)
