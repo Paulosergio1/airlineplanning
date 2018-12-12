@@ -8,6 +8,7 @@ warning('off','MATLAB:xlswrite:NoCOMServer')
 
 %%  Determine input
 filn        =   [pwd '/AE4423_Datasheets.xlsx'];
+filn2       =   [pwd '/Group8_results.xlsx'];
 
 Demand               =   xlsread(filn,'Group 8', 'C15:V34');
 Airport_data         =   xlsread(filn,'Group 8', 'C6:V9');
@@ -95,7 +96,9 @@ for i = 1:24
     end
 end
 
-xlsread(filn,'Group 8', 'C15:V34')
+
+%%  Write ouput to excel file
+xlswrite(filn2,demandEstimates2022,'Demands2022')
 
 %% Function for determining the great circle distance between two airports
 function out = arclen(airport_i,airport_j,Airport_data)
