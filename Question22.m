@@ -48,7 +48,7 @@ function Multicommodity ()
         time_used=10*7;
         
         %Fuel price
-        Fuel_price              = 1.42; %USD/gallon
+        Fuel_price              = 1.6; %USD/gallon
         Max_US_flow             = 7500;
         
 %   Decision variables
@@ -326,13 +326,13 @@ function Multicommodity ()
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
-            if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
-                slots(i,1)=slots(i,1)+sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3);
+            if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)+sol.Flow(i,j,4)+sol.Flow(i,j,5)>0
+                slots(i,1)=sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)+sol.Flow(i,j,4)+sol.Flow(i,j,5);
                 NL      = NL + 1;
                 fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d) \n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,4), sol.Flow(i,j,5), ...
-                            sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
+                            sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3)+sol.Flow (i,j,4)+sol.Flow(i,j,5), ...
                             Demand(i,j));
             end
         end
