@@ -98,7 +98,7 @@ end
 
 
 %%  Write ouput to excel file
-xlswrite(filn2,demandEstimates2022,'Demands2022')
+xlswrite(filn2,round(demandEstimates2022),'Demands2022')
 
 %% Function for determining the great circle distance between two airports
 function out = arclen(airport_i,airport_j,Airport_data)

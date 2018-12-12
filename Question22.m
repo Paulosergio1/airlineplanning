@@ -15,7 +15,7 @@ function Multicommodity ()
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
     filn2       =   [pwd '/Group8_results.xlsx'];
     
-    Demand      =   xlsread(filn,'Group 8', 'C127:Z150');
+    Demand      =   xlsread(filn2,'Demands2022', 'A1:X24');
     Airport_data=   xlsread(filn,'Group 8', 'C6:Z9');
     [~,Airport_name] =   xlsread(filn,'Group 8', 'C5:Z5'); 
     

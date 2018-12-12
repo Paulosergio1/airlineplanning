@@ -1,3 +1,21 @@
+itterations=5;
+for i=1:itterations
+    clc
+    clearvars
+    close all
+    demand ()
+    clc
+    clearvars
+    close all
+    Airlineplanning()
+end
+
+function out = arclen(airport_i,airport_j,Airport_data)
+    delta_sigma = 2*asin(sqrt((sin(deg2rad((Airport_data(1,airport_i)-Airport_data(1,airport_j))/2)))^2+cos(deg2rad(Airport_data(1,airport_i)))*cos(deg2rad(Airport_data(1,airport_j)))*(sin(deg2rad((Airport_data(2,airport_i)-Airport_data(2,airport_j))/2)))^2));
+    %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
+    out = 6371*delta_sigma;
+end
+
 function Airlineplanning ()
 %%  Initialization
     addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\matlab\x64_win64');
@@ -422,13 +440,9 @@ function out = arclen(airport_i,airport_j,Airport_data)
 end
 %}
 
-function out = arclen(airport_i,airport_j,Airport_data)
-    delta_sigma = 2*asin(sqrt((sin(deg2rad((Airport_data(1,airport_i)-Airport_data(1,airport_j))/2)))^2+cos(deg2rad(Airport_data(1,airport_i)))*cos(deg2rad(Airport_data(1,airport_j)))*(sin(deg2rad((Airport_data(2,airport_i)-Airport_data(2,airport_j))/2)))^2));
-    %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
-    out = 6371*delta_sigma;
-end
 
-function demand()
+
+function demand ()
     clc
 	clearvars
     close all
@@ -462,7 +476,7 @@ function demand()
             demand_high_new(i,j) = d_hi;
         end
     end
-    demand_new = [demand_low_new;demand_high_new];
+    demand_new = round([demand_low_new;demand_high_new]);
     xlswrite(filn2,demand_new,'new_demands')
 end
 
