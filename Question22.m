@@ -13,6 +13,7 @@ function Multicommodity ()
     %%  Determine input
 %   Select input file and sheet
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
+    filn2       =   [pwd '/Group8_results.xlsx'];
     
     Demand      =   xlsread(filn,'Group 8', 'C127:Z150');
     Airport_data=   xlsread(filn,'Group 8', 'C6:Z9');
@@ -238,8 +239,19 @@ function Multicommodity ()
                 C_US_capacity(varindex(i,j,1,'w',Nodes))=1; %Transfer passengers from europe
             end
         end
-        cplex.addRows(0, C_US_capacity,Max_US_flow, sprintf('Max_capacity')); % Total passenger should be lower than maximum allowed
-          
+        cplex.addRows(0, C_US_capacity,Max_US_flow, sprintf('Max_capacity_EU_to_US')); % Total passenger should be lower than maximum allowed
+        
+        %Max amounr of passengers to the EU
+        C_EU_capacity=zeros(1,DV);
+        for i=21:Nodes
+            for j=1:Nodes %Only flights with destination to the US
+                C_EU_capacity(varindex(i,j,1,'x',Nodes))=1; %direct passengers from hub
+                C_EU_capacity(varindex(i,j,1,'w',Nodes))=1; %Transfer passengers from europe
+            end
+        end
+        cplex.addRows(0, C_EU_capacity,Max_US_flow, sprintf('Max_capacity_US_to_EU')); % Total passenger should be lower than maximum allowed
+        
+        
         % No direct flights between european cities and US, besides hub,
         % and no inner US flights
         C_no_hub_US=zeros(1,DV);
@@ -273,8 +285,10 @@ function Multicommodity ()
         cplex.addRows(0,C_ac4_ac5, 0, sprintf('No_europe_flight_ac4_ac5'));
         
      %%  Execute model
-        cplex.Param.mip.limits.nodes.Cur    = 1e+5;         %max number of nodes to be visited (kind of max iterations)
+        %cplex.Param.mip.limits.nodes.Cur    = 1e+5;         %max number of nodes to be visited (kind of max iterations)
         cplex.Param.timelimit.Cur           = 500;         %max time in seconds
+        cplex.Param.mip.tolerances.mipgap.Cur   = 0.009;
+        
         
 %   Run CPLEX
         cplex.writeModel([model '.lp']);
@@ -337,8 +351,10 @@ function Multicommodity ()
             sol.Flow(i,j,k_ac+1)=sum(sol.Flow(i,j,1:k_ac));
         end
     end
-    xlswrite(filn,sol.Flow(:,:,6),'Group8-data')
+    xlswrite(filn2,sol.Flow(:,:,6),'Group8-data')
 end
+
+
 function out = varindex(i,j,k,letter,nodes)
     if letter == 'x'
         out=(i-1)*nodes+j;
