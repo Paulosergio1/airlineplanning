@@ -157,7 +157,7 @@ function Multicommodity ()
                     end
                 end
                 for k = 1:k_ac
-                    C_cap(varindex(i,j,k,'z',Nodes)) = -ACData(2,k)*LF;
+                    C_cap(varindex(i,j,k,'z',Nodes)) = -(ACData(2,k)*LF);
                 end
                 cplex.addRows(-inf, C_cap,0,sprintf('ACcapacity%d_%d',i,j));
             end
@@ -218,8 +218,10 @@ function Multicommodity ()
         
             
      %%  Execute model
-        cplex.Param.mip.limits.nodes.Cur    = 1e+5;         %max number of nodes to be visited (kind of max iterations)
-        cplex.Param.timelimit.Cur           = 500;         %max time in seconds
+        %cplex.Param.mip.limits.nodes.Cur    = 1e+8;         %max number of nodes to be visited (kind of max iterations)
+        cplex.Param.timelimit.Cur           = 250;         %max time in seconds
+        cplex.Param.mip.tolerances.mipgap.Cur   = 0.009;
+        
         
 %   Run CPLEX
         cplex.solve();
@@ -228,12 +230,10 @@ function Multicommodity ()
      %%  Postprocessing
 %   Store direct results
     status                      =   cplex.Solution.status;
-    if status == 101 || status == 102 || status == 105  %http://www.ibm.com/support/knowledgecenter/SSSA5P_12.6.0/ilog.odms.cplex.help/refcallablelibrary/macros/Solution_status_codes.html
-        sol.profit      =   cplex.Solution.objval-fixed_cost;
-        sol.values      =   cplex.Solution.x;
-        for k = 1:k_ac
-            sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
-        end
+    sol.profit      =   cplex.Solution.objval-fixed_cost;
+    sol.values      =   cplex.Solution.x;
+    for k = 1:k_ac
+        sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
     end
     % Count the numbers of slots used
     slots=zeros(Nodes,1);
