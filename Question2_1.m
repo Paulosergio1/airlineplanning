@@ -15,6 +15,8 @@ Airport_data=   xlsread(filn,'Group 8', 'C6:V9');
 Pop2017    =   xlsread(filn,'General', 'C4:C23');
 GDP2017    =   xlsread(filn,'General', 'G4:G23');
 
+fuelfactor = 1.42;
+
 %%  Determine distance between airports
 Airport_distance = zeros(20,20); 
 for i = 1:20
@@ -26,15 +28,16 @@ for i = 1:20
     end
 end
 
-%% Determine error using Non-Linear Least Squares https://nl.mathworks.com/help/optim/ug/nonlinear-curve-fitting-with-lsqcurvefit.html
-xdata = [Pop2017 GDP2017 Airport_distance];
-ydata = Demand;
-a0 = [2 2 2 2];
+%%  Convert data to right format
+ydata = log(reshape(Demand,[400,1]));
+ydata(ydata==-Inf) = 1e-15;
+popdata = reshape(Pop2017*transpose(Pop2017),[400,1]);
+GDPdata = reshape(GDP2017*transpose(GDP2017),[400,1]);
+distdata = log(fuelfactor*reshape(Airport_distance,[400,1]));
+distdata(distdata==-Inf) = 1e-15;
+xdata = [popdata GDPdata distdata];
 
-hybridopts = optimset('MaxFunEvals', 10000, 'MaxIter', 5000);
-
-predicted = @(a,xdata) a(1) * ((xdata(:,1)*transpose(xdata(:,1)).^(a(2))) * (xdata(:,2)*transpose(xdata(:,2)).^(a(3)))) ./ ((1.42 * (xdata(:,3:22)+1e-8)).^(a(4)));
-[ahat,resnorm,residual,exitflag,output,lambda,jacobian] = lsqcurvefit(predicted,a0,xdata,ydata,[-Inf;-Inf;-Inf;-Inf],[Inf;Inf;Inf;Inf],hybridopts);
+mdl = fitlm(xdata,ydata,'linear','RobustOpts','on')
 
 
 
@@ -51,7 +54,6 @@ function out = arclen(airport_i,airport_j,Airport_data)
     out = 6371*delta_sigma;
 end
 
-
 %% Estimate the demands
 %parameters = [0.3 0.7 0.7 0.7];
 %demandEstimates = zeros(20,20);
@@ -65,4 +67,16 @@ end
 %        end
 %    end
 %end
+
+
+
+%% Determine error using Non-Linear Least Squares https://nl.mathworks.com/help/optim/ug/nonlinear-curve-fitting-with-lsqcurvefit.html
+%xdata = [Pop2017 GDP2017 Airport_distance];
+%ydata = Demand;
+%a0 = [2 2 2 2];
+
+%hybridopts = optimset('MaxFunEvals', 10000, 'MaxIter', 5000);
+
+%predicted = @(a,xdata) a(1) * ((xdata(:,1)*transpose(xdata(:,1)).^(a(2))) * (xdata(:,2)*transpose(xdata(:,2)).^(a(3)))) ./ ((1.42 * (xdata(:,3:22)+1e-8)).^(a(4)));
+%[ahat,resnorm,residual,exitflag,output,lambda,jacobian] = lsqcurvefit(predicted,a0,xdata,ydata,[-Inf;-Inf;-Inf;-Inf],[Inf;Inf;Inf;Inf],hybridopts);
 
