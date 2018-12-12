@@ -8,44 +8,97 @@ warning('off','MATLAB:xlswrite:NoCOMServer')
 
 %%  Determine input
 filn        =   [pwd '/AE4423_Datasheets.xlsx'];
+filn2       =   [pwd '/Group8_results.xlsx'];
 
-Demand      =   xlsread(filn,'Group 8', 'C15:V34');
-Airport_data=   xlsread(filn,'Group 8', 'C6:V9');
+Demand               =   xlsread(filn,'Group 8', 'C15:V34');
+Airport_data         =   xlsread(filn,'Group 8', 'C6:V9');
+Airport_data_incl_US =   xlsread(filn,'Group 8', 'C6:Z9');
 
-Pop2017    =   xlsread(filn,'General', 'C4:C23');
+
+Pop2010_incl_US    =   xlsread(filn,'General', 'B4:B27')/1000;
+GDP2010_incl_US    =   xlsread(filn,'General', 'F4:F27');
+
+Pop2017    =   xlsread(filn,'General', 'C4:C23')/1000;
+Pop2017_US =   xlsread(filn,'General', 'C24:C27')/1000;
 GDP2017    =   xlsread(filn,'General', 'G4:G23');
+GDP2017_US =   xlsread(filn,'General', 'G24:G27');
 
-fuelfactor = 1.42;
+fuelfactor2017 = 1.42;
+fuelfactor2022 = 1.6;
 
 %%  Determine distance between airports
-Airport_distance = zeros(20,20); 
-for i = 1:20
-    for j = 1:20
-        airportDistance_ij = arclen(i,j,Airport_data);
+ Airport_distance_incl_US = zeros(24,24); 
+for i = 1:24
+    for j = 1:24
+        airportDistance_ij = arclen(i,j,Airport_data_incl_US);
         if airportDistance_ij ~= Inf
-            Airport_distance(i,j) = airportDistance_ij;
+            Airport_distance_incl_US(i,j) = airportDistance_ij;
         end
     end
 end
 
-%%  Convert data to right format
+%Remove US values for parameter estimation with just European destinations
+Airport_distance = Airport_distance_incl_US(1:20,1:20);
+
+
+%%  Convert data to right format, removing rows with 0 demand (when flying from i to i)
 ydata = log(reshape(Demand,[400,1]));
 ydata(ydata==-Inf) = 1e-15;
-popdata = reshape(Pop2017*transpose(Pop2017),[400,1]);
-GDPdata = reshape(GDP2017*transpose(GDP2017),[400,1]);
-distdata = log(fuelfactor*reshape(Airport_distance,[400,1]));
+
+popdata = log(reshape(Pop2017*transpose(Pop2017),[400,1]));
+popdata(popdata==-Inf) = 1e-15;
+
+GDPdata = log(reshape(GDP2017*transpose(GDP2017),[400,1]));
+GDPdata(GDPdata==-Inf) = 1e-15;
+
+distdata = log(fuelfactor2017*reshape(Airport_distance,[400,1]));
 distdata(distdata==-Inf) = 1e-15;
+
 xdata = [popdata GDPdata distdata];
 
-mdl = fitlm(xdata,ydata,'linear','RobustOpts','on')
 
+%%  Linear regression to estimate the coefficients
+mdl = fitlm(xdata,ydata,'linear','RobustOpts','on');
+log_k = mdl.Coefficients.Estimate(1); %Natural logarithm of k
+b1 = mdl.Coefficients.Estimate(2);
+b2 = mdl.Coefficients.Estimate(3);
+b3 = mdl.Coefficients.Estimate(4);
 
-
-%% Function for determining the demand between two airports    
-function out = demand(airport_i,airport_j,Airport_data,Population,GDP,k,b1,b2,b3)
-    out = k * (((Population(airport_i)*Population(airport_j))^b1 * (GDP(airport_i)*GDP(airport_j) )^b2) / (1.42 * arclen(airport_i,airport_j,Airport_data))^b3);
+%%  Estimate demands for 2017 (Only European destinations)
+demandEstimates2017 = zeros(20,20);
+for i = 1:20
+    for j = 1:20
+        if i ~= j
+            lndemandEstimates_ij = log_k + b1 * log(Pop2017(i)*Pop2017(j)) + b2 * log(GDP2017(i)*GDP2017(j)) + b3 * log(fuelfactor2017 * Airport_distance(i,j));
+            demandEstimates2017(i,j) = exp(lndemandEstimates_ij);
+        end
+    end
 end
 
+%%  Estimate population and GPD for 2022, assuming linear variation (y = ax + b)
+a_pop = ([Pop2017; Pop2017_US] - Pop2010_incl_US)/7;
+Pop2022 = a_pop*12 + Pop2010_incl_US;
+
+a_GDP = ([GDP2017; GDP2017_US] - GDP2010_incl_US)/7;
+GDP2022 = a_GDP*12 + GDP2010_incl_US;
+
+%%  Estimate European demands for 2020
+demandEstimates2022 = zeros(24,24);
+for i = 1:24
+    for j = 1:24
+        if i ~= j
+            lndemandEstimates_ij = log_k + b1 * log(Pop2022(i)*Pop2022(j)) + b2 * log(GDP2022(i)*GDP2022(j)) + b3 * log(fuelfactor2022 * Airport_distance_incl_US(i,j));
+            demandEstimates2022(i,j) = exp(lndemandEstimates_ij);
+            if i > 20 || j > 20
+               demandEstimates2022(i,j) = 10 * demandEstimates2022(i,j); 
+            end
+        end
+    end
+end
+
+
+%%  Write ouput to excel file
+xlswrite(filn2,demandEstimates2022,'Demands2022')
 
 %% Function for determining the great circle distance between two airports
 function out = arclen(airport_i,airport_j,Airport_data)
@@ -53,30 +106,4 @@ function out = arclen(airport_i,airport_j,Airport_data)
     %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
     out = 6371*delta_sigma;
 end
-
-%% Estimate the demands
-%parameters = [0.3 0.7 0.7 0.7];
-%demandEstimates = zeros(20,20);
-%demandDifferences = zeros(20,20);
-%for i = 1:20
-%    for j = 1:20
-%        airportDistance_ij = demand(i,j,Airport_data,Pop2017,GDP2017,parameters(1),parameters(2),parameters(3),parameters(4));
-%        if airportDistance_ij ~= Inf
-%            demandEstimates(i,j) = airportDistance_ij;
-%            demandDifferences(i,j) = Demand(i,j) - airportDistance_ij;
-%        end
-%    end
-%end
-
-
-
-%% Determine error using Non-Linear Least Squares https://nl.mathworks.com/help/optim/ug/nonlinear-curve-fitting-with-lsqcurvefit.html
-%xdata = [Pop2017 GDP2017 Airport_distance];
-%ydata = Demand;
-%a0 = [2 2 2 2];
-
-%hybridopts = optimset('MaxFunEvals', 10000, 'MaxIter', 5000);
-
-%predicted = @(a,xdata) a(1) * ((xdata(:,1)*transpose(xdata(:,1)).^(a(2))) * (xdata(:,2)*transpose(xdata(:,2)).^(a(3)))) ./ ((1.42 * (xdata(:,3:22)+1e-8)).^(a(4)));
-%[ahat,resnorm,residual,exitflag,output,lambda,jacobian] = lsqcurvefit(predicted,a0,xdata,ydata,[-Inf;-Inf;-Inf;-Inf],[Inf;Inf;Inf;Inf],hybridopts);
 
