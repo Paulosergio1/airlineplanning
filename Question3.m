@@ -353,10 +353,55 @@ function Airlineplanning ()
     slots=zeros(Nodes,2);
 %   Write output
     new_fleet=zeros(k_ac,1);
+    % The new fleet after considering buying additional and selling
     for k=1:k_ac
-        new_fleet(k,1)=fleet(k)-cplex.Solution.x(varindex(1,1,k,1,'s',Nodes),1)+cplex.Solution.x(varindex(1,1,k,1,'e',Nodes),1);
+            new_fleet(k,1)=fleet(k)-cplex.Solution.x(varindex(1,1,k,1,'s',Nodes),1)+cplex.Solution.x(varindex(1,1,k,1,'e',Nodes),1);
     end
     
+    %Profit high season
+    profit_high=-fixed_cost*0.5;
+    for i=varindex(1,1,1,1,'x',Nodes):varindex(Nodes,Nodes,k_ac,1,'x',Nodes)
+        if isnan(obj(i,1))==0
+            profit_high=profit_high+obj(i,1)*sol.values(i);
+        end
+    end
+    for i=varindex(1,1,1,1,'w',Nodes):varindex(Nodes,Nodes,k_ac,1,'w',Nodes)
+        if isnan(obj(i,1))==0
+            profit_high=profit_high+obj(i,1)*sol.values(i);
+        end
+    end
+    for i=varindex(1,1,1,1,'z',Nodes):varindex(Nodes,Nodes,k_ac,1,'z',Nodes)
+        if isnan(obj(i,1))==0
+            profit_high=profit_high+obj(i,1)*sol.values(i);
+        end
+    end
+   
+   
+    %Profit low season
+    profit_low=-fixed_cost*0.5;
+    for i=varindex(1,1,1,2,'x',Nodes):varindex(Nodes,Nodes,k_ac,2,'x',Nodes)
+        if isnan(obj(i,1))==0
+            profit_low=profit_low+obj(i,1)*sol.values(i);
+        end
+    end
+    for i=varindex(1,1,1,2,'w',Nodes):varindex(Nodes,Nodes,k_ac,2,'w',Nodes)
+        if isnan(obj(i,1))==0
+            profit_low=profit_low+obj(i,1)*sol.values(i);
+        end
+    end
+    for i=varindex(1,1,1,2,'z',Nodes):varindex(Nodes,Nodes,k_ac,2,'z',Nodes)
+        if isnan(obj(i,1))==0
+            profit_low=profit_low+obj(i,1)*sol.values(i);
+        end
+    end
+    
+    % Adding cost for stopping/new constract
+    for i=1:k_ac
+        profit_high=profit_high+0.5*obj(varindex(1,1,i,2,'e',Nodes),1)*sol.values(varindex(1,1,i,2,'e',Nodes))+...
+        0.5*obj(varindex(1,1,i,2,'s',Nodes),1)*sol.values(varindex(1,1,i,2,'s',Nodes));
+        profit_low=profit_low+0.5*obj(varindex(1,1,i,2,'e',Nodes),1)*sol.values(varindex(1,1,i,2,'e',Nodes))+...
+        0.5*obj(varindex(1,1,i,2,'s',Nodes),1)*sol.values(varindex(1,1,i,2,'s',Nodes));
+    end
     
     fprintf('\n-------------------------Original fleet---------------------------\n');
     fprintf('AC type 1: (1) %d \n',new_fleet(1,1));
@@ -364,13 +409,16 @@ function Airlineplanning ()
     fprintf('AC type 3: (1) %d \n',new_fleet(3,1));
     fprintf('AC type 4: (0) %d \n',new_fleet(4,1));
     fprintf('AC type 5: (0) %d \n',new_fleet(5,1));
+    fprintf('\n-------------------------Original fleet---------------------------\n');
+    fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     for p=1:season
         if p==1
             fprintf('\n-------------------Network operated high season------------------\n');
+            fprintf ('Profit:          %10.1f  \n', profit_high);
         else 
             fprintf('\n-------------------Network operated low season------------------\n');
+            fprintf ('Profit:          %10.1f  \n', profit_low);
         end
-        fprintf ('Objective function value:          %10.1f  \n', sol.profit);
         fprintf ('\n') 
         fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Demand) \n');
         NL      =   0;
