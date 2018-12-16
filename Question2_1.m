@@ -95,6 +95,7 @@ for i = 1:24
     end
 end
 
+SD = round(demandEstimates2022);
 
 %%  Write ouput to excel file
 xlswrite(filn2,round(demandEstimates2022),'Demands2022')
