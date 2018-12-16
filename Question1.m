@@ -151,9 +151,11 @@ function Multicommodity ()
                 C_cap = zeros(1,DV);
                 C_cap(varindex(i,j,0,'x',Nodes)) = 1;
                 if g(j) == 0 || g(i) == 0
-                    for m = 1:Nodes
-                        C_cap(varindex(m,j,0,'w',Nodes)) = 1 - g(i);
-                        C_cap(varindex(i,m,0,'w',Nodes)) = 1 - g(j);
+                    if i~=j
+                        for m = 1:Nodes
+                            C_cap(varindex(m,j,0,'w',Nodes)) = 1 - g(i);
+                            C_cap(varindex(i,m,0,'w',Nodes)) = 1 - g(j);
+                        end
                     end
                 end
                 for k = 1:k_ac
@@ -209,8 +211,10 @@ function Multicommodity ()
             for i=1:Nodes
                 C_flow=zeros(1,DV);
                 for j=1:Nodes
-                    C_flow(varindex(i,j,k,'z',Nodes))=1;
-                    C_flow(varindex(j,i,k,'z',Nodes))=-1;
+                    if i~=j
+                        C_flow(varindex(i,j,k,'z',Nodes))=1;
+                        C_flow(varindex(j,i,k,'z',Nodes))=-1;
+                    end
                 end
                 cplex.addRows(0, C_flow, 0, sprintf('flow%d_%d',i, k));
             end

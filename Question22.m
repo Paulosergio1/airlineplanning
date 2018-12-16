@@ -26,7 +26,7 @@ function Multicommodity ()
  
     ACData      =   xlsread(filn,'Group 8', 'B116:F124');
     
-    Nodes      =    length(Demand(1,:));
+    Nodes      =    5;%length(Demand(1,:));
     
     %%  Initiate CPLEX model
 %   Create model
@@ -42,7 +42,7 @@ function Multicommodity ()
         
 %       Variable g which determines if the airport is a hub or not
         g=ones(Nodes,1);
-        g(3,1)=0;
+        g(3,1)=0; % G is zero for the hub
         
 %       Utilisation time in hours
         time_used=10*7;
@@ -141,7 +141,7 @@ function Multicommodity ()
             C_time_ac(varindex(1,1,k,'s',Nodes))=time_used;
             C_time_ac(varindex(1,1,k,'e',Nodes))=-time_used;
             rightvariable=time_used*fleet(k);
-            cplex.addRows(0, C_time_ac, rightvariable, sprintf('Timeusedac%d',k));
+            cplex.addRows(-inf, C_time_ac, rightvariable, sprintf('Timeusedac%d',k));
         end
     %   Passengers not more than demand
         for i = 1:Nodes
@@ -168,9 +168,11 @@ function Multicommodity ()
                 C_cap = zeros(1,DV);
                 C_cap(varindex(i,j,0,'x',Nodes)) = 1;
                 if g(j) == 0 || g(i) == 0
-                    for m = 1:Nodes
-                        C_cap(varindex(m,j,0,'w',Nodes)) = 1 - g(i);
-                        C_cap(varindex(i,m,0,'w',Nodes)) = 1 - g(j);
+                    if i~=j
+                        for m = 1:Nodes
+                            C_cap(varindex(m,j,0,'w',Nodes)) = 1 - g(i);
+                            C_cap(varindex(i,m,0,'w',Nodes)) = 1 - g(j);
+                        end
                     end
                 end
                 for k = 1:k_ac
@@ -224,8 +226,10 @@ function Multicommodity ()
             for i=1:Nodes
                 C_flow=zeros(1,DV);
                 for j=1:Nodes
-                    C_flow(varindex(i,j,k,'z',Nodes))=1;
-                    C_flow(varindex(j,i,k,'z',Nodes))=-1;
+                    if i~=j
+                        C_flow(varindex(i,j,k,'z',Nodes))=1;
+                        C_flow(varindex(j,i,k,'z',Nodes))=-1;
+                    end
                 end
                 cplex.addRows(0, C_flow, 0, sprintf('flow%d_%d',i, k));
             end
@@ -276,8 +280,8 @@ function Multicommodity ()
         % No flights within europe for ac type 4 and 5
         C_ac4_ac5=zeros(1,DV);
         for k=4:k_ac
-            for i=1:20
-                for j=1:20
+            for i=1:Nodes-4
+                for j=1:Nodes-4
                     C_ac4_ac5(varindex(i,j,k,'z',Nodes))=1;
                 end
             end
@@ -313,12 +317,12 @@ function Multicommodity ()
     end
     
     
-    fprintf('\n---------------------------Original fleet-------------------------\n');
-    fprintf('AC type 1: %d \n',new_fleet(1,1));
-    fprintf('AC type 2: %d \n',new_fleet(2,1));
-    fprintf('AC type 3: %d \n',new_fleet(3,1));
-    fprintf('AC type 4: %d \n',new_fleet(4,1));
-    fprintf('AC type 5: %d \n',new_fleet(5,1));
+    fprintf('\n---------------------------(Original) Operational fleet-------------------------\n');
+    fprintf('AC type 1: (1) %d \n',new_fleet(1,1));
+    fprintf('AC type 2: (1) %d \n',new_fleet(2,1));
+    fprintf('AC type 3: (1) %d \n',new_fleet(3,1));
+    fprintf('AC type 4: (0) %d \n',new_fleet(4,1));
+    fprintf('AC type 5: (0) %d \n',new_fleet(5,1));
     fprintf('\n----------------------------Network operate-------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
@@ -351,7 +355,8 @@ function Multicommodity ()
             sol.Flow(i,j,k_ac+1)=sum(sol.Flow(i,j,1:k_ac));
         end
     end
-    xlswrite(filn2,sol.Flow(:,:,6),'Group8-data')
+    xlswrite(filn2,sol.Flow(:,:,6),'Group8-data','A1:X24')
+    xlswrite(filn2,sol.Flow(:,:,6),'Group8-data','A25:X48')
 end
 
 

@@ -1,20 +1,14 @@
-itterations=5;
-for i=1:itterations
-    clc
-    clearvars
-    close all
-    demand ()
-    clc
+itterations=1;
+for iter=1:itterations
+%     clearvars
+%     close all
+%     demand ()
     clearvars
     close all
     Airlineplanning()
 end
 
-function out = arclen(airport_i,airport_j,Airport_data)
-    delta_sigma = 2*asin(sqrt((sin(deg2rad((Airport_data(1,airport_i)-Airport_data(1,airport_j))/2)))^2+cos(deg2rad(Airport_data(1,airport_i)))*cos(deg2rad(Airport_data(1,airport_j)))*(sin(deg2rad((Airport_data(2,airport_i)-Airport_data(2,airport_j))/2)))^2));
-    %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
-    out = 6371*delta_sigma;
-end
+
 
 function Airlineplanning ()
 %%  Initialization
@@ -22,7 +16,6 @@ function Airlineplanning ()
     savepath
     addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\examples\src\matlab');
     savepath
-    clc
 	clearvars
     close all
     warning('off','MATLAB:lang:badlyScopedReturnValue')
@@ -33,19 +26,18 @@ function Airlineplanning ()
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
     filn2       =   [pwd '/Group8_results.xlsx'];
     
-    Demand(:,:,1)      =   xlsread(filn2,'new_demands', 'A25:X48');
-    Demand(:,:,2)      =   xlsread(filn2,'new_demands', 'A1:X24');
+    Demand(:,:,1)      =   xlsread(filn2,'Demands2022', 'A1:X24');%xlsread(filn2,'new_demands', 'A1:X24');
+    Demand(:,:,2)      =   xlsread(filn2,'Demands2022', 'A1:X24');%xlsread(filn2,'new_demands', 'A25:X48');
+
     Airport_data=   xlsread(filn,'Group 8', 'C6:Z9');
     [~,Airport_name] =   xlsread(filn,'Group 8', 'C5:Z5'); 
     
     fleet       =   xlsread(filn,'Group 8', 'B12:F12');
-    
-%     Population  =   xlsread(filn,'General', 'B4:C27');
-%     GDOP        =   xlsread(filn,'General', 'F4:G27');
+
  
     ACData      =   xlsread(filn,'Group 8', 'B116:F124');
     
-    Nodes      =    length(Demand(1,:));
+    Nodes      =    5;%length(Demand(1,:,1));
     
     %%  Initiate CPLEX model
 %   Create model
@@ -76,9 +68,9 @@ function Airlineplanning ()
 %   Decision variables
     
     %%  Objective Function
-        DV_Xnodes                  =   Nodes*Nodes*2; % number of nodes for direct passenger
-        DV_Wnodes                  =   Nodes*Nodes*2; % number of nodes for transfer passenger
-        DV_Znodes                  =   Nodes*Nodes*k_ac*2;% number of nodes for flights with ac type
+        DV_Xnodes                  =   Nodes*Nodes*season; % number of nodes for direct passenger
+        DV_Wnodes                  =   Nodes*Nodes*season; % number of nodes for transfer passenger
+        DV_Znodes                  =   Nodes*Nodes*k_ac*season;% number of nodes for flights with ac type
         DV_Knodes                  =   k_ac*2; %number of nodes for leasing additional ac or stopping contracts
 
         %   Decision variables
@@ -148,7 +140,7 @@ function Airlineplanning ()
     %%  Fixed cost calculation
         fixed_cost=0;
         for k=1:k_ac
-            fixed_cost=fixed_cost+fleet(k)*ACData(6,k);
+            fixed_cost=fixed_cost+2*fleet(k)*ACData(6,k);
         end
         
     %%  Constraints
@@ -172,7 +164,7 @@ function Airlineplanning ()
                 C_time_ac(varindex(1,1,k,p,'s',Nodes))=time_used;
                 C_time_ac(varindex(1,1,k,p,'e',Nodes))=-time_used;
                 rightvariable=time_used*fleet(k);
-                cplex.addRows(0, C_time_ac, rightvariable, sprintf('Timeusedac%d',k));
+                cplex.addRows(-inf, C_time_ac, rightvariable, sprintf('Timeusedac%d_%d',k,p));
             end
         %   Passengers not more than demand
             for i = 1:Nodes
@@ -180,7 +172,7 @@ function Airlineplanning ()
                     C_dem = zeros(1,DV);
                     C_dem(varindex(i,j,0,p,'x',Nodes)) = 1;
                     C_dem(varindex(i,j,0,p,'w',Nodes)) = 1;
-                    cplex.addRows(0, C_dem, Demand(i,j,p), sprintf('DemandConstraint%d_%d',i,j));
+                    cplex.addRows(0, C_dem, Demand(i,j,p), sprintf('DemandConstraint%d_%d_%d',i,j,p));
                 end
             end
         %   No transfer if one the airports is hub 
@@ -189,7 +181,7 @@ function Airlineplanning ()
                     C_hub     =   zeros(1, DV);
                     C_hub(varindex(i,j,0,p,'w',Nodes)) = 1;
                     hub_or_not = g(i) * g(j);
-                    cplex.addRows(0, C_hub, Demand(i,j,p) * hub_or_not,sprintf('TransferHub%d_%d',i,j));
+                    cplex.addRows(0, C_hub, Demand(i,j,p) * hub_or_not,sprintf('TransferHub%d_%d_%d',i,j,p));
                 end
             end
 
@@ -199,15 +191,17 @@ function Airlineplanning ()
                     C_cap = zeros(1,DV);
                     C_cap(varindex(i,j,0,p,'x',Nodes)) = 1;
                     if g(j) == 0 || g(i) == 0
-                        for m = 1:Nodes
-                            C_cap(varindex(m,j,0,p,'w',Nodes)) = 1 - g(i);
-                            C_cap(varindex(i,m,0,p,'w',Nodes)) = 1 - g(j);
+                        if i~=j
+                            for m = 1:Nodes
+                                C_cap(varindex(m,j,0,p,'w',Nodes)) = 1 - g(i);
+                                C_cap(varindex(i,m,0,p,'w',Nodes)) = 1 - g(j);
+                            end
                         end
                     end
                     for k = 1:k_ac
                         C_cap(varindex(i,j,k,p,'z',Nodes)) = -ACData(2,k)*LF;
                     end
-                    cplex.addRows(-inf, C_cap,0,sprintf('ACcapacity%d_%d',i,j));
+                    cplex.addRows(-inf, C_cap,0,sprintf('ACcapacity%d_%d_%d',i,j,p));
                 end
             end
 
@@ -220,7 +214,7 @@ function Airlineplanning ()
                         distance=arclen(i,j,Airport_data);
                         C_range(varindex(i,j,k,p,'z',Nodes))=1;
                         if distance>ACData(4,k)
-                            cplex.addRows(0, C_range, 0, sprintf('range%d_%d_%d',i,j,k));
+                            cplex.addRows(0, C_range, 0, sprintf('range%d_%d_%d_%d',i,j,k,p));
                         end
                     end
                 end
@@ -234,7 +228,7 @@ function Airlineplanning ()
                         for j=1:Nodes
                             C_runway(varindex(i,j,k,p,'z',Nodes))=1;
                         end
-                        cplex.addRows(0, C_runway, 0, sprintf('runway%d_%d',i,k));
+                        cplex.addRows(0, C_runway, 0, sprintf('runway%d_%d_%d',i,k,p));
                     end
                 end
             end
@@ -247,7 +241,7 @@ function Airlineplanning ()
                        C_slots(varindex(i,j,k,p,'z',Nodes))=1;
                     end
                 end
-                cplex.addRows(0, C_slots, Airport_data(4,j), sprintf('slots%d',j));
+                cplex.addRows(0, C_slots, Airport_data(4,j), sprintf('slots%d_%d',j,p));
             end
 
             %flow inside of airport should be equal to flow outside of airport
@@ -255,10 +249,12 @@ function Airlineplanning ()
                 for i=1:Nodes
                     C_flow=zeros(1,DV);
                     for j=1:Nodes
-                        C_flow(varindex(i,j,k,p,'z',Nodes))=1;
-                        C_flow(varindex(j,i,k,p,'z',Nodes))=-1;
+                        if i~=j
+                            C_flow(varindex(i,j,k,p,'z',Nodes))=1;
+                            C_flow(varindex(j,i,k,p,'z',Nodes))=-1;
+                        end
                     end
-                    cplex.addRows(0, C_flow, 0, sprintf('flow%d_%d',i, k));
+                    cplex.addRows(0, C_flow, 0, sprintf('flow%d_%d_%d',i,k,p));
                 end
             end
 
@@ -270,7 +266,7 @@ function Airlineplanning ()
                     C_US_capacity(varindex(i,j,1,p,'w',Nodes))=1; %Transfer passengers from europe
                 end
             end
-            cplex.addRows(0, C_US_capacity,Max_US_flow, sprintf('Max_capacity_EU_to_US')); % Total passenger should be lower than maximum allowed
+            cplex.addRows(0, C_US_capacity,Max_US_flow, sprintf('Max_capacity_EU_to_US%d',p)); % Total passenger should be lower than maximum allowed
 
             %Max amounr of passengers from the US to the EU
             C_EU_capacity=zeros(1,DV);
@@ -280,7 +276,7 @@ function Airlineplanning ()
                     C_EU_capacity(varindex(i,j,1,p,'w',Nodes))=1; %Transfer passengers from europe
                 end
             end
-            cplex.addRows(0, C_EU_capacity,Max_US_flow, sprintf('Max_capacity_US_to_EU')); % Total passenger should be lower than maximum allowed
+            cplex.addRows(0, C_EU_capacity,Max_US_flow, sprintf('Max_capacity_US_to_EU%d',p)); % Total passenger should be lower than maximum allowed
 
 
             % No direct flights between european cities and US, besides hub,
@@ -294,18 +290,18 @@ function Airlineplanning ()
                     end
                 end
             end
-            cplex.addRows(0, C_no_hub_US, 0, sprintf('No_hub_US'));
+            cplex.addRows(0, C_no_hub_US, 0, sprintf('No_hub_US%d',p));
 
             % No flights within europe for ac type 4 and 5
             C_ac4_ac5=zeros(1,DV);
             for k=4:k_ac
-                for i=1:20
-                    for j=1:20
+                for i=1:Nodes-4
+                    for j=1:Nodes-4
                         C_ac4_ac5(varindex(i,j,k,p,'z',Nodes))=1;
                     end
                 end
             end
-            cplex.addRows(0,C_ac4_ac5, 0, sprintf('No_europe_flight_ac4_ac5'));
+            cplex.addRows(0,C_ac4_ac5, 0, sprintf('No_europe_flight_ac4_ac5_%d',p));
         
         end
         
@@ -313,7 +309,7 @@ function Airlineplanning ()
         %type
         for k=1:k_ac
             C_stop_contract=zeros(1,DV);
-            C_stop_contract(varindex(1,1,k,'s',Nodes))=1;
+            C_stop_contract(varindex(1,1,k,p,'s',Nodes))=1;
             cplex.addRows(0, C_stop_contract, fleet(k), sprintf('Max_stop_contract%d',k));
         end
             
@@ -350,13 +346,17 @@ function Airlineplanning ()
     
     
     fprintf('\n-------------------------Original fleet---------------------------\n');
-    fprintf('AC type 1: %d \n',new_fleet(1,1));
-    fprintf('AC type 2: %d \n',new_fleet(2,1));
-    fprintf('AC type 3: %d \n',new_fleet(3,1));
-    fprintf('AC type 4: %d \n',new_fleet(4,1));
-    fprintf('AC type 5: %d \n',new_fleet(5,1));
+    fprintf('AC type 1: (1) %d \n',new_fleet(1,1));
+    fprintf('AC type 2: (1) %d \n',new_fleet(2,1));
+    fprintf('AC type 3: (1) %d \n',new_fleet(3,1));
+    fprintf('AC type 4: (0) %d \n',new_fleet(4,1));
+    fprintf('AC type 5: (0) %d \n',new_fleet(5,1));
     for p=1:season
-        fprintf('\n-------------------Network operated season %d', num2str(p), '-------------------\n');
+        if p==1
+            fprintf('\n-------------------Network operated high season------------------\n');
+        else 
+            fprintf('\n-------------------Network operated low season------------------\n');
+        end
         fprintf ('Objective function value:          %10.1f  \n', sol.profit);
         fprintf ('\n') 
         fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Demand) \n');
@@ -395,10 +395,17 @@ function Airlineplanning ()
 
     for i=1:Nodes
         for j=1:Nodes
-            sol.Flow(i,j,season*k_ac+1)=sum(sol.Flow(i,j,1:season*k_ac));
+            sol.Flow(i,j,season*k_ac+1)=sum(sol.Flow(i,j,1:k_ac));
         end
     end
-    xlswrite(filn2,sol.Flow(:,:,season*k_ac+1),'Group8-data')
+    for i=1:Nodes
+        for j=1:Nodes
+            sol.Flow(i,j,season*k_ac+2)=sum(sol.Flow(i,j,k_ac+1:season*k_ac));
+        end
+    end
+    
+    xlswrite(filn2,sol.Flow(:,:,season*k_ac+1),'Group8-data','A1:X24')
+    xlswrite(filn2,sol.Flow(:,:,season*k_ac+2),'Group8-data','A25:X48')
 end
 
 
@@ -440,19 +447,20 @@ function out = arclen(airport_i,airport_j,Airport_data)
 end
 %}
 
-
+function out = arclen(airport_i,airport_j,Airport_data)
+    delta_sigma = 2*asin(sqrt((sin(deg2rad((Airport_data(1,airport_i)-Airport_data(1,airport_j))/2)))^2+cos(deg2rad(Airport_data(1,airport_i)))*cos(deg2rad(Airport_data(1,airport_j)))*(sin(deg2rad((Airport_data(2,airport_i)-Airport_data(2,airport_j))/2)))^2));
+    %[arclen, azimuth] = distance(Airport_data(1:2,(1:end-1)), Airport_data(1:2,(2:end)), spheroid);
+    out = 6371*delta_sigma;
+end
 
 function demand ()
-    clc
-	clearvars
-    close all
-   
     %%  Determine input
 %   Select input file and sheet
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
     filn2       =   [pwd '/Group8_results.xlsx'];
     
-    frequencies = xlsread(filn2,'Group8-data','A1:X24');
+    frequencies(:,:,1) = xlsread(filn2,'Group8-data','A1:X24');
+    frequencies(:,:,2) = xlsread(filn2,'Group8-data','A25:X48');
     frequencies_c = xlsread(filn,'Group 8','C89:Z112');
     
     demand_low = xlsread(filn,'Group 8','C63:Z86');
@@ -462,22 +470,29 @@ function demand ()
     b = 1.7;
     
     %% Market Share
-    demand_low_new = zeros(length(frequencies),length(frequencies'));
-    demand_high_new = zeros(length(frequencies),length(frequencies'));
-    for i = 1:length(frequencies)
-        for j = 1:length(frequencies')
-            freq_d = frequencies(i,j);
-            freq_i = min(frequencies(3,j),frequencies(i,3));
-            freq_c = frequencies_c(i,j);
-            ms = (freq_d^a + freq_i^b)/(freq_d^a + freq_i^b + freq_c^a + 1e-15);
-            d_lo = ms*demand_low(i,j);
-            d_hi = ms*demand_high(i,j);
-            demand_low_new(i,j) = d_lo;
-            demand_high_new(i,j) = d_hi;
+    for t=1:2
+        demand_low_new = zeros(length(frequencies(:,:,t)),length(frequencies(:,:,t)'));
+        demand_high_new = zeros(length(frequencies(:,:,t)),length(frequencies(:,:,t)'));
+        for i = 1:length(frequencies(:,:,t))
+            for j = 1:length(frequencies(:,:,t)')
+                freq_d = frequencies(i,j,t);
+                freq_i = min(frequencies(3,j,t),frequencies(i,3,t));
+                freq_c = frequencies_c(i,j);
+                ms = (freq_d^a + freq_i^b)/(freq_d^a + freq_i^b + freq_c^a + 1e-15);
+                d_lo = ms*demand_low(i,j);
+                d_hi = ms*demand_high(i,j);
+                demand_low_new(i,j) = d_lo;
+                demand_high_new(i,j) = d_hi;
+            end
+        end
+        if i==t
+            demand_new = round(demand_high_new);
+            xlswrite(filn2,demand_new,'new_demands','A1:X24')
+        elseif i==t
+            demand_new = round(demand_low_new);
+            xlswrite(filn2,demand_new,'new_demands','A25:X48')
         end
     end
-    demand_new = round([demand_low_new;demand_high_new]);
-    xlswrite(filn2,demand_new,'new_demands')
 end
 
     
