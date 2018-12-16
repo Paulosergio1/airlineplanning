@@ -1,8 +1,8 @@
-itterations=1;
+itterations=5;
 for iter=1:itterations
-%     clearvars
-%     close all
-%     demand ()
+    clearvars
+    close all
+    demand ()
     clearvars
     close all
     Airlineplanning()
@@ -26,8 +26,8 @@ function Airlineplanning ()
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
     filn2       =   [pwd '/Group8_results.xlsx'];
     
-    Demand(:,:,1)      =   xlsread(filn2,'Demands2022', 'A1:X24');%xlsread(filn2,'new_demands', 'A1:X24');
-    Demand(:,:,2)      =   xlsread(filn2,'Demands2022', 'A1:X24');%xlsread(filn2,'new_demands', 'A25:X48');
+    Demand(:,:,1)      =   xlsread(filn2,'new_demands', 'A1:X24'); % High season
+    Demand(:,:,2)      =   xlsread(filn2,'new_demands', 'A25:X48'); % Low season
 
     Airport_data=   xlsread(filn,'Group 8', 'C6:Z9');
     [~,Airport_name] =   xlsread(filn,'Group 8', 'C5:Z5'); 
@@ -37,7 +37,7 @@ function Airlineplanning ()
  
     ACData      =   xlsread(filn,'Group 8', 'B116:F124');
     
-    Nodes      =    5;%length(Demand(1,:,1));
+    Nodes      =    length(Demand(1,:,1));
     
     %%  Initiate CPLEX model
 %   Create model
@@ -53,10 +53,11 @@ function Airlineplanning ()
         
 %       Load factor
         LF = 0.75;
+        LF_US = 0.85;
         
 %       Variable g which determines if the airport is a hub or not
         g=ones(Nodes,1);
-        g(3,1)=0;
+        g(3,1)=0; % G is zero for the hub
         
 %       Utilisation time in hours
         time_used=10*7;
@@ -87,7 +88,11 @@ function Airlineplanning ()
         for p=1:season %For both high and low season 
             for i =1:Nodes % objective function values for direct passengers
                 for j = 1:Nodes                    % of the x_{ij}^k variables
-                    obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                    if i>20 || j>20
+                        obj(l,1)      = 0.05*(arclen(i,j,Airport_data));
+                    else
+                        obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                    end
                     NameDV (l,:)  = ['X_' num2str(i,'%02d') ',' num2str(j,'%02d') ',' num2str(p,'%02d') '   '];
                     l = l + 1;
                 end
@@ -97,7 +102,11 @@ function Airlineplanning ()
         for p=1:season %For both high and low season 
             for i =1:Nodes % objective function values for trasfer passenger
                 for j = 1:Nodes                    % of the x_{ij}^k variables
-                    obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                    if i>20 || j>20
+                        obj(l,1)      = 0.05*(arclen(i,j,Airport_data));
+                    else
+                        obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                    end
                     NameDV (l,:)  = ['W_' num2str(i,'%02d') ',' num2str(j,'%02d') ',' num2str(p,'%02d') '   '];
                     l = l + 1;
                 end
@@ -121,13 +130,13 @@ function Airlineplanning ()
         end
         
         for k=1:k_ac
-            obj(l,1) = -8000+ACData(6,k);
+            obj(l,1) = 2*(-8000+ACData(6,k));
             NameDV(l,:) = ['K_stop__' num2str(k,'%02d') '   '];
             l=l+1;
         end
         
         for k=1:k_ac
-            obj(l,1) = -2000-ACData(6,k);
+            obj(l,1) = 2*(-2000-ACData(6,k));
             NameDV(l,:) = ['K_extra_' num2str(k,'%02d') '   '];
             l=l+1;
         end
@@ -199,7 +208,11 @@ function Airlineplanning ()
                         end
                     end
                     for k = 1:k_ac
-                        C_cap(varindex(i,j,k,p,'z',Nodes)) = -ACData(2,k)*LF;
+                        if i>20 || j>20
+                            C_cap(varindex(i,j,k,p,'z',Nodes)) = -ACData(2,k)*LF_US;
+                        else
+                            C_cap(varindex(i,j,k,p,'z',Nodes)) = -ACData(2,k)*LF;
+                        end
                     end
                     cplex.addRows(-inf, C_cap,0,sprintf('ACcapacity%d_%d_%d',i,j,p));
                 end
@@ -315,7 +328,7 @@ function Airlineplanning ()
             
         
      %%  Execute model
-        cplex.Param.mip.limits.nodes.Cur    = 1e+5;         %max number of nodes to be visited (kind of max iterations)
+        %cplex.Param.mip.limits.nodes.Cur    = 1e+5;         %max number of nodes to be visited (kind of max iterations)
         cplex.Param.timelimit.Cur           = 500;         %max time in seconds
         cplex.Param.mip.tolerances.mipgap.Cur   = 0.009;
         
@@ -337,7 +350,7 @@ function Airlineplanning ()
         end
     end
     % Count the numbers of slots used
-    slots=zeros(Nodes,1,2);
+    slots=zeros(Nodes,2);
 %   Write output
     new_fleet=zeros(k_ac,1);
     for k=1:k_ac
@@ -363,12 +376,9 @@ function Airlineplanning ()
         NL      =   0;
         for i = 1:Nodes
             for j = 1:Nodes
-                if sol.Flow(i,j,1+(p-1)*k_ac)+sol.Flow(i,j,2+(p-1)*k_ac)+sol.Flow(i,j,3+(p-1)*k_ac)+...
-                        sol.Flow(i,j,4+(p-1)*k_ac)+sol.Flow(i,j,5+(p-1)*k_ac)>0
-                    slots(i,1,p)=sol.Flow(i,j,1+(p-1)*k_ac)+sol.Flow(i,j,2+(p-1)*k_ac)+...
-                        sol.Flow(i,j,3+(p-1)*k_ac)+sol.Flow(i,j,4+(p-1)*k_ac)+...
-                        sol.Flow(i,j,5+(p-1)*k_ac);
-                NL      = NL + 1;
+                if sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac))>0
+                    slots(i,p)=slots(i,p)+sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac));
+                    NL      = NL + 1;
                     fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d) \n', NL, Airport_name{i}, ...
                                 Airport_name{j}, sol.Flow (i,j,1+(p-1)*k_ac), sol.Flow (i,j,2+(p-1)*k_ac), ...
                                 sol.Flow (i,j,3+(p-1)*k_ac), sol.Flow (i,j,4+(p-1)*k_ac), sol.Flow(i,j,5+(p-1)*k_ac), ...
@@ -383,13 +393,13 @@ function Airlineplanning ()
     fprintf('\n------------------------High Season Slots-------------------------------------\n');
     fprintf ('Used Available \n');
     for i=1:Nodes
-        fprintf (' %2d       %5d     \n', slots(i,1,1), Airport_data(4,i));
+        fprintf (' %2d       %5d     \n', slots(i,1), Airport_data(4,i));
     end
    
     fprintf('\n------------------------Low Season Slots-------------------------------------\n');
     fprintf ('Used Available \n');
     for i=1:Nodes
-        fprintf (' %2d       %5d     \n', slots(i,1,2), Airport_data(4,i));
+        fprintf (' %2d       %5d     \n', slots(i,2), Airport_data(4,i));
     end
     %% Write frequency to excel file in the group8-data tab
 
@@ -433,9 +443,11 @@ function out = varindex(i,j,k,season,letter,nodes)
     elseif letter == 'e'% gives index for K-extra variable
         out=4*nodes^2+10*nodes^2+k+5;
     end   
-        % Function given the variable index for each DV (i,j,k) the letter
-        % denotes wheter you would like to have the variable x,w,z or k. 
+%         Function given the variable index for each DV (i,j,k) the letter
+%         denotes wheter you would like to have the variable x,w,z or k. 
+
 end
+
 
 %{
 function out = arclen(airport_i,airport_j,Airport_data)
@@ -485,10 +497,10 @@ function demand ()
                 demand_high_new(i,j) = d_hi;
             end
         end
-        if i==t
+        if t==1
             demand_new = round(demand_high_new);
             xlswrite(filn2,demand_new,'new_demands','A1:X24')
-        elseif i==t
+        elseif t==2
             demand_new = round(demand_low_new);
             xlswrite(filn2,demand_new,'new_demands','A25:X48')
         end

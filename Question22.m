@@ -4,7 +4,6 @@ function Multicommodity ()
     savepath
     addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\examples\src\matlab');
     savepath
-    clc
 	clearvars
     close all
     warning('off','MATLAB:lang:badlyScopedReturnValue')
@@ -26,7 +25,7 @@ function Multicommodity ()
  
     ACData      =   xlsread(filn,'Group 8', 'B116:F124');
     
-    Nodes      =    5;%length(Demand(1,:));
+    Nodes      =    length(Demand(1,:));
     
     %%  Initiate CPLEX model
 %   Create model
@@ -39,6 +38,7 @@ function Multicommodity ()
         
 %       Load factor
         LF = 0.75;
+        LF_US = 0.85;
         
 %       Variable g which determines if the airport is a hub or not
         g=ones(Nodes,1);
@@ -72,7 +72,11 @@ function Multicommodity ()
         l = 1;                                      % Array with DV names  (OPTIONAL, BUT HELPS READING THE .lp FILE)
         for i =1:Nodes % objective function values for direct passengers
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                if i>20 || j>20
+                    obj(l,1)      = 0.05*(arclen(i,j,Airport_data));
+                else
+                    obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                end
                 NameDV (l,:)  = ['X_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -80,7 +84,11 @@ function Multicommodity ()
         
         for i =1:Nodes % objective function values for trasfer passenger
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                if i>20 || j>20
+                    obj(l,1)      = 0.05*(arclen(i,j,Airport_data));
+                else
+                    obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                end
                 NameDV (l,:)  = ['W_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -176,7 +184,11 @@ function Multicommodity ()
                     end
                 end
                 for k = 1:k_ac
-                    C_cap(varindex(i,j,k,'z',Nodes)) = -ACData(2,k)*LF;
+                    if i>20 || j>20
+                        C_cap(varindex(i,j,k,'z',Nodes)) = -ACData(2,k)*LF_US;
+                    else
+                        C_cap(varindex(i,j,k,'z',Nodes)) = -ACData(2,k)*LF;
+                    end
                 end
                 cplex.addRows(-inf, C_cap,0,sprintf('ACcapacity%d_%d',i,j));
             end
@@ -330,8 +342,8 @@ function Multicommodity ()
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
-            if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)+sol.Flow(i,j,4)+sol.Flow(i,j,5)>0
-                slots(i,1)=sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)+sol.Flow(i,j,4)+sol.Flow(i,j,5);
+            if sum(sol.Flow(i,j,1:5))>0
+                slots(i,1)=slots(i,1)+sum(sol.Flow(i,j,1:5));
                 NL      = NL + 1;
                 fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d) \n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
