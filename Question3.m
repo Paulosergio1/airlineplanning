@@ -412,6 +412,13 @@ function Airlineplanning ()
     fprintf('\n-------------------------Original fleet---------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     for p=1:season
+        figure(p);
+        %     worldmap([20 65],[-130 -60]) % For the US
+        worldmap([35 65],[-15 30]) % For the EU
+        land = shaperead('landareas.shp', 'UseGeoCoords', true);
+        geoshow(land, 'FaceColor', [0.6 0.6 0.6])
+        color = ['r','g','b','c','m'];
+        hold on
         if p==1
             fprintf('\n-------------------Network operated high season------------------\n');
             fprintf ('Profit:          %10.1f  \n', profit_high);
@@ -420,8 +427,9 @@ function Airlineplanning ()
             fprintf ('Profit:          %10.1f  \n', profit_low);
         end
         fprintf ('\n') 
-        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Demand) \n');
+        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat) \n');
         NL      =   0;
+
         for i = 1:Nodes
             for j = 1:Nodes
                 if sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac))>0
@@ -432,7 +440,23 @@ function Airlineplanning ()
                                 sol.Flow (i,j,3+(p-1)*k_ac), sol.Flow (i,j,4+(p-1)*k_ac), sol.Flow(i,j,5+(p-1)*k_ac), ...
                                 sol.Flow (i,j,1+(p-1)*k_ac)+sol.Flow (i,j,2+(p-1)*k_ac)+sol.Flow(i,j,3+(p-1)*k_ac)+...
                                 sol.Flow (i,j,4+(p-1)*k_ac)+sol.Flow(i,j,5+(p-1)*k_ac), ...
-                                Demand(i,j,p));
+                                obj(varindex(i,j,1,p,'x',Nodes)));
+                    for k=1:k_ac
+                        if sol.Flow(i,j,(p-1)*k_ac+k)>0 && i<=20 && j<=20  % For the EU
+    %                     if sol.Flow(i,j,(p-1)*k_ac+k)>0   % For the US    
+                            h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
+                                    [Airport_data(2,i);Airport_data(2,j)]);
+                            h.Marker = '*';
+                            h.Color = color(k);
+                            h.LineWidth = sol.Flow(i,j,(p-1)*k_ac+k);
+                        end
+                
+%                 x_loc=(Airport_data(1,i)+Airport_data(1,j))/2;
+%                 y_loc=(Airport_data(2,i)+Airport_data(2,j))/2;
+%                 Capacity=ACData(2,1:k_ac)*[sol.values(varindex(i,j,1,'z', Nodes)),sol.values(varindex(i,j,2,'z', Nodes)),sol.values(varindex(i,j,3,'z', Nodes))]';
+%                 textm(x_loc,y_loc,['(',num2str(Capacity), ')'])
+                    textm(Airport_data(1,i), Airport_data(2,i),Airport_name(i))
+                    end
                 end
             end
         end
@@ -448,6 +472,28 @@ function Airlineplanning ()
     fprintf ('Used Available \n');
     for i=1:Nodes
         fprintf (' %2d       %5d     \n', slots(i,2), Airport_data(4,i));
+    end
+    
+    fprintf('\n------------------------Cost per AC High Season-------------------------------------\n');
+    for k=1:k_ac
+        cost=0;
+        for i=1:Nodes
+            for j=1:Nodes
+                cost=cost+obj(varindex(i,j,k,1,'z', Nodes))*sol.values(varindex(i,j,k,1,'z', Nodes));
+            end
+        end
+        fprintf ('Cost AC type %d:  %10.1f  \n',k, -cost);
+    end
+    
+        fprintf('\n------------------------Cost per AC Low Season-------------------------------------\n');
+    for k=1:k_ac
+        cost=0;
+        for i=1:Nodes
+            for j=1:Nodes
+                cost=cost+obj(varindex(i,j,k,2,'z', Nodes))*sol.values(varindex(i,j,k,2,'z', Nodes));
+            end
+        end
+        fprintf ('Cost AC type %d:  %10.1f  \n',k, -cost);
     end
     %% Write frequency to excel file in the group8-data tab
 

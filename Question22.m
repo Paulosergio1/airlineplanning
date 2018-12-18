@@ -320,6 +320,14 @@ function Multicommodity ()
             sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
         end
     end
+    
+%     worldmap([20 65],[-130 -60]) % For the US
+    worldmap([35 65],[-15 30]) % For the EU
+    land = shaperead('landareas.shp', 'UseGeoCoords', true);
+    geoshow(land, 'FaceColor', [0.6 0.6 0.6])
+    color = ['r','g','b','c','m'];
+    hold on
+    
     % Count the numbers of slots used
     slots=zeros(Nodes,1);
 %   Write output
@@ -338,7 +346,7 @@ function Multicommodity ()
     fprintf('\n----------------------------Network operate-------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Demand) \n');
+    fprintf ('Link From   To       AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat) \n');
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
@@ -349,7 +357,22 @@ function Multicommodity ()
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,4), sol.Flow(i,j,5), ...
                             sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3)+sol.Flow (i,j,4)+sol.Flow(i,j,5), ...
-                            Demand(i,j));
+                            obj(varindex(i,j,1,'x',Nodes)));
+                for k=1:k_ac
+                    if sol.Flow(i,j,k)>0 && i<=20 && j<=20  % For the EU
+%                     if sol.Flow(i,j,k)>0   % For the US    
+                        h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
+                                [Airport_data(2,i);Airport_data(2,j)]);
+                        h.Marker = '*';
+                        h.Color = color(k);
+                        h.LineWidth = sol.Flow(i,j,k);
+                    end
+                end
+%                 x_loc=(Airport_data(1,i)+Airport_data(1,j))/2;
+%                 y_loc=(Airport_data(2,i)+Airport_data(2,j))/2;
+%                 Capacity=ACData(2,1:k_ac)*[sol.values(varindex(i,j,1,'z', Nodes)),sol.values(varindex(i,j,2,'z', Nodes)),sol.values(varindex(i,j,3,'z', Nodes))]';
+%                 textm(x_loc,y_loc,['(',num2str(Capacity), ')'])
+                textm(Airport_data(1,i), Airport_data(2,i),Airport_name(i))
             end
         end
     end
@@ -359,7 +382,17 @@ function Multicommodity ()
     for i=1:Nodes
         fprintf (' %2d       %5d     \n', slots(i,1), Airport_data(4,i));
     end
-   
+    
+    fprintf('\n------------------------Cost per AC-------------------------------------\n');
+    for k=1:k_ac
+        cost=0;
+        for i=1:Nodes
+            for j=1:Nodes
+                cost=cost+obj(varindex(i,j,k,'z', Nodes))*sol.values(varindex(i,j,k,'z', Nodes));
+            end
+        end
+        fprintf ('Cost AC type %d:  %10.1f  \n',k, -cost);
+    end
     %% Write frequency to excel file in the group8-data tab
 
     for i=1:Nodes

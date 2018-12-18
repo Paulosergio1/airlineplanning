@@ -239,13 +239,20 @@ function Multicommodity ()
     for k = 1:k_ac
         sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
     end
+    
+    worldmap([35 65],[-15 30])
+    land = shaperead('landareas.shp', 'UseGeoCoords', true);
+    geoshow(land, 'FaceColor', [0.6 0.6 0.6])
+    color = ['r','g','b','c','m'];
+    hold on
+    
     % Count the numbers of slots used
     slots=zeros(Nodes,1);
 %   Write output
     fprintf('\n-----------------------------------------------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link From   To         AC1    AC2   AC3    Total (Demand) \n');
+    fprintf ('Link From   To         AC1    AC2   AC3    Total (Revenue per Seat) \n');
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
@@ -255,7 +262,22 @@ function Multicommodity ()
                 fprintf (' %2d  %s   %s  %5d  %5d %5d %6d  (%5d) \n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
-                            Demand(i,j));
+                            obj(varindex(i,j,1,'x',Nodes)));
+                for k=1:k_ac
+                    if sol.Flow(i,j,k)>0
+                        h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
+                                [Airport_data(2,i);Airport_data(2,j)]);
+                        h.Marker = '*';
+                        h.Color = color(k);
+                        h.LineWidth = sol.Flow(i,j,k);
+                    end
+                end
+%                 x_loc=(Airport_data(1,i)+Airport_data(1,j))/2;
+%                 y_loc=(Airport_data(2,i)+Airport_data(2,j))/2;
+%                 Capacity=ACData(2,1:k_ac)*[sol.values(varindex(i,j,1,'z', Nodes)),sol.values(varindex(i,j,2,'z', Nodes)),sol.values(varindex(i,j,3,'z', Nodes))]';
+%                 textm(x_loc,y_loc,['(',num2str(Capacity), ')'])
+                textm(Airport_data(1,i), Airport_data(2,i),Airport_name(i))
+
             end
         end
     end
@@ -266,6 +288,19 @@ function Multicommodity ()
         fprintf (' %2d       %5d     \n', slots(i,1), Airport_data(4,i));
     end
    
+    fprintf('\n------------------------Cost per AC-------------------------------------\n');
+    for k=1:k_ac
+        cost=0;
+        for i=1:Nodes
+            for j=1:Nodes
+                cost=cost+obj(varindex(i,j,k,'z', Nodes))*sol.values(varindex(i,j,k,'z', Nodes));
+            end
+        end
+        fprintf ('Cost AC type:     %d  \n', k);
+        fprintf ('            :     %10.1f  \n', cost);
+    end
+    
+        
 end
 function out = varindex(i,j,k,letter,nodes)
     if letter == 'x'
