@@ -316,13 +316,14 @@ function Multicommodity ()
     if status == 101 || status == 102 || status == 105  %http://www.ibm.com/support/knowledgecenter/SSSA5P_12.6.0/ilog.odms.cplex.help/refcallablelibrary/macros/Solution_status_codes.html
         sol.profit      =   cplex.Solution.objval-fixed_cost;
         sol.values      =   cplex.Solution.x;
+        sol.Passenger (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'x', Nodes):varindex(Nodes, Nodes, k, 'x', Nodes)), Nodes, Nodes))';
         for k = 1:k_ac
             sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
         end
     end
     
-%     worldmap([20 65],[-130 -60]) % For the US
-    worldmap([35 65],[-15 30]) % For the EU
+    worldmap([20 65],[-130 -60]) % For the US
+%     worldmap([35 65],[-15 30]) % For the EU
     land = shaperead('landareas.shp', 'UseGeoCoords', true);
     geoshow(land, 'FaceColor', [0.6 0.6 0.6])
     color = ['r','g','b','c','m'];
@@ -346,21 +347,25 @@ function Multicommodity ()
     fprintf('\n----------------------------Network operate-------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link From   To       AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat) \n');
+    fprintf ('Link From   To       AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat)        (Profit) \n');
     NL      =   0;
     for i = 1:Nodes
         for j = 1:Nodes
             if sum(sol.Flow(i,j,1:5))>0
                 slots(i,1)=slots(i,1)+sum(sol.Flow(i,j,1:5));
                 NL      = NL + 1;
-                fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d) \n', NL, Airport_name{i}, ...
+                profit=obj(varindex(i,j,1,'x',Nodes))*sol.Passenger(i,j);
+                for k= 1:k_ac
+                    profit=profit+obj(varindex(i,j,k,'z',Nodes))*sol.Flow(i,j,k);
+                end
+                fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d)  (%5d) \n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,4), sol.Flow(i,j,5), ...
                             sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3)+sol.Flow (i,j,4)+sol.Flow(i,j,5), ...
-                            obj(varindex(i,j,1,'x',Nodes)));
+                            obj(varindex(i,j,1,'x',Nodes)),profit);
                 for k=1:k_ac
-                    if sol.Flow(i,j,k)>0 && i<=20 && j<=20  % For the EU
-%                     if sol.Flow(i,j,k)>0   % For the US    
+%                     if sol.Flow(i,j,k)>0 && i<=20 && j<=20  % For the EU
+                    if sol.Flow(i,j,k)>0   % For the US    
                         h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
                                 [Airport_data(2,i);Airport_data(2,j)]);
                         h.Marker = '*';

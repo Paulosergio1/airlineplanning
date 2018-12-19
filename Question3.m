@@ -412,6 +412,7 @@ function Airlineplanning ()
     fprintf('\n-------------------------Original fleet---------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     for p=1:season
+        sol.Passenger (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,p,'x', Nodes):varindex(Nodes, Nodes, k,p, 'x', Nodes)), Nodes, Nodes))';
         figure(p);
         %     worldmap([20 65],[-130 -60]) % For the US
         worldmap([35 65],[-15 30]) % For the EU
@@ -427,7 +428,7 @@ function Airlineplanning ()
             fprintf ('Profit:          %10.1f  \n', profit_low);
         end
         fprintf ('\n') 
-        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat) \n');
+        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat)   (profit)\n');
         NL      =   0;
 
         for i = 1:Nodes
@@ -435,12 +436,16 @@ function Airlineplanning ()
                 if sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac))>0
                     slots(i,p)=slots(i,p)+sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac));
                     NL      = NL + 1;
-                    fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d) \n', NL, Airport_name{i}, ...
+                    profit=obj(varindex(i,j,1,p,'x',Nodes))*sol.Passenger(i,j);
+                    for k= 1:k_ac
+                        profit=profit+obj(varindex(i,j,k,p,'z',Nodes))*sol.Flow(i,j,k);
+                    end
+                    fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d)   (%5d)\n', NL, Airport_name{i}, ...
                                 Airport_name{j}, sol.Flow (i,j,1+(p-1)*k_ac), sol.Flow (i,j,2+(p-1)*k_ac), ...
                                 sol.Flow (i,j,3+(p-1)*k_ac), sol.Flow (i,j,4+(p-1)*k_ac), sol.Flow(i,j,5+(p-1)*k_ac), ...
                                 sol.Flow (i,j,1+(p-1)*k_ac)+sol.Flow (i,j,2+(p-1)*k_ac)+sol.Flow(i,j,3+(p-1)*k_ac)+...
                                 sol.Flow (i,j,4+(p-1)*k_ac)+sol.Flow(i,j,5+(p-1)*k_ac), ...
-                                obj(varindex(i,j,1,p,'x',Nodes)));
+                                obj(varindex(i,j,1,p,'x',Nodes)),profit);
                     for k=1:k_ac
                         if sol.Flow(i,j,(p-1)*k_ac+k)>0 && i<=20 && j<=20  % For the EU
     %                     if sol.Flow(i,j,(p-1)*k_ac+k)>0   % For the US    
