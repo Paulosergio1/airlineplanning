@@ -65,11 +65,14 @@ function Multicommodity ()
         ub                      =   inf(DV, 1);                                   % Upper bounds
         ctype                   =   char(ones(1, (DV)) * ('I'));                  % Variable types 'C'=continuous; 'I'=integer; 'B'=binary
         
-        
         l = 1;                                      % Array with DV names  (OPTIONAL, BUT HELPS READING THE .lp FILE)
         for i =1:Nodes % objective function values for direct passengers
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                if i == j
+                    obj(l,1)      = 1e-15;
+                else
+                    obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                end
                 NameDV (l,:)  = ['X_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -77,7 +80,11 @@ function Multicommodity ()
         
         for i =1:Nodes % objective function values for trasfer passenger
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                if i == j 
+                    obj(l,1)      = 1e-15;
+                else
+                    obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
+                end
                 NameDV (l,:)  = ['W_' num2str(i,'%02d') ',' num2str(j,'%02d') '   '];
                 l = l + 1;
             end
@@ -234,7 +241,7 @@ function Multicommodity ()
      %%  Postprocessing
 %   Store direct results
     status                      =   cplex.Solution.status;
-    sol.profit      =   cplex.Solution.objval-fixed_cost;
+    sol.profit      =   cplex.Solution.objval - fixed_cost;
     sol.values      =   cplex.Solution.x;
     sol.Passenger (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'x', Nodes):varindex(Nodes, Nodes, k, 'x', Nodes)), Nodes, Nodes))';
     for k = 1:k_ac

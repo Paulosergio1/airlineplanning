@@ -72,7 +72,9 @@ function Multicommodity ()
         l = 1;                                      % Array with DV names  (OPTIONAL, BUT HELPS READING THE .lp FILE)
         for i =1:Nodes % objective function values for direct passengers
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                if i>20 || j>20
+                if i == j
+                    obj(l,1)      = 1e-15;
+                elseif i>20 || j>20
                     obj(l,1)      = 0.05*(arclen(i,j,Airport_data));
                 else
                     obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
@@ -84,7 +86,9 @@ function Multicommodity ()
         
         for i =1:Nodes % objective function values for trasfer passenger
             for j = 1:Nodes                    % of the x_{ij}^k variables
-                if i>20 || j>20
+                if i == j
+                    obj(l,1)      = 1e-15;
+                elseif i>20 || j>20
                     obj(l,1)      = 0.05*(arclen(i,j,Airport_data));
                 else
                     obj(l,1)      = (5.9*(arclen(i,j,Airport_data))^(-0.76)+0.043)*(arclen(i,j,Airport_data));
