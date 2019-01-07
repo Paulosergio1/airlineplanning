@@ -565,7 +565,7 @@ function out = arclen(airport_i,airport_j,Airport_data)
 end
 
 function demand ()
-    %%  Determine input
+    %%  Determine inputsni
 %   Select input file and sheet
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
     filn2       =   [pwd '/Group8_results.xlsx'];
