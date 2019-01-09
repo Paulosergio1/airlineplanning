@@ -320,7 +320,8 @@ function Multicommodity ()
     if status == 101 || status == 102 || status == 105  %http://www.ibm.com/support/knowledgecenter/SSSA5P_12.6.0/ilog.odms.cplex.help/refcallablelibrary/macros/Solution_status_codes.html
         sol.profit      =   cplex.Solution.objval-fixed_cost;
         sol.values      =   cplex.Solution.x;
-        sol.Passenger (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'x', Nodes):varindex(Nodes, Nodes, k, 'x', Nodes)), Nodes, Nodes))';
+        sol.PassengerDirect (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'x', Nodes):varindex(Nodes, Nodes, k, 'x', Nodes)), Nodes, Nodes))';
+        sol.PassengerIndirect (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'w', Nodes):varindex(Nodes, Nodes, k, 'w', Nodes)), Nodes, Nodes))';
         for k = 1:k_ac
             sol.Flow (:,:,k)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,'z', Nodes):varindex(Nodes, Nodes, k, 'z', Nodes)), Nodes, Nodes))';
         end
@@ -351,22 +352,37 @@ function Multicommodity ()
     fprintf('\n----------------------------Network operate-------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link From   To       AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat)        (Profit) \n');
+    fprintf ('Link From   To       AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat)  (Revenue) (ASK)  (RASK) (CASK) (RPK) (Profit) (Yield) (ALF) (BELF)\n');
     NL      =   0;
+    alf_array = [];
     for i = 1:Nodes
         for j = 1:Nodes
             if sum(sol.Flow(i,j,1:5))>0
                 slots(i,1)=slots(i,1)+sum(sol.Flow(i,j,1:5));
                 NL      = NL + 1;
-                profit=obj(varindex(i,j,1,'x',Nodes))*sol.Passenger(i,j);
-                for k= 1:k_ac
-                    profit=profit+obj(varindex(i,j,k,'z',Nodes))*sol.Flow(i,j,k);
+                yield=obj(varindex(i,j,1,'x',Nodes))*sol.PassengerDirect(i,j);
+                if i == 3
+                    yield = yield + obj(varindex(i,j,1,'w',Nodes))*sol.PassengerIndirect(i,j)*(arclen(3,j,Airport_data)/(arclen(3,j,Airport_data)+arclen(i,3,Airport_data)));
+                elseif j == 3
+                    yield = yield + obj(varindex(i,j,1,'w',Nodes))*sol.PassengerIndirect(i,j)*(arclen(i,3,Airport_data)/(arclen(3,j,Airport_data)+arclen(i,3,Airport_data)));
                 end
-                fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d)  (%5d) \n', NL, Airport_name{i}, ...
+                for k= 1:k_ac
+                    profit=yield+obj(varindex(i,j,k,'z',Nodes))*sol.Flow(i,j,k);
+                end
+                revenue = obj(varindex(i,j,1,'x',Nodes))*(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3));
+                ask = arclen(i,j,Airport_data)*(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3));
+                rask = revenue*ask;
+                cost_tot = revenue-profit;
+                cask = cost_tot/ask;
+                rpk = arclen(i,j,Airport_data)*sol.PassengerDirect(i,j);
+                alf = (sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j))/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3));
+                alf_array = [alf_array,alf];
+                belf = (cost_tot/revenue)*alf;
+                fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d)  (%5d) (5%d) (%5d) (%5d) (%5d) (%5d) (%5d) (%5d) (%5d)\n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,4), sol.Flow(i,j,5), ...
                             sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3)+sol.Flow (i,j,4)+sol.Flow(i,j,5), ...
-                            obj(varindex(i,j,1,'x',Nodes)),profit);
+                            obj(varindex(i,j,1,'x',Nodes)), revenue, ask, rask, cask, rpk, profit, yield, alf, belf);
                 for k=1:k_ac
 %                     if sol.Flow(i,j,k)>0 && i<=20 && j<=20  % For the EU
                     if sol.Flow(i,j,k)>0   % For the US    
@@ -385,6 +401,8 @@ function Multicommodity ()
             end
         end
     end
+    
+    anlf = sum(alf_array)
     
     fprintf('\n------------------------Slots-------------------------------------\n');
     fprintf ('Used Available \n');
