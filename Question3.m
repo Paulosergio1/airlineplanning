@@ -415,7 +415,8 @@ function Airlineplanning ()
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     utilisation=zeros(1,k_ac,season);
     for p=1:season
-        sol.Passenger (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,p,'x', Nodes):varindex(Nodes, Nodes, k,p, 'x', Nodes)), Nodes, Nodes))';
+        sol.PassengerDirect (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,p,'x', Nodes):varindex(Nodes, Nodes, k,p, 'x', Nodes)), Nodes, Nodes))';
+        sol.PassengerIndirect (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,p,'w', Nodes):varindex(Nodes, Nodes, k,p, 'w', Nodes)), Nodes, Nodes))';
         figure(p);
         %     worldmap([20 65],[-130 -60]) % For the US
         worldmap([35 65],[-15 30]) % For the EU
@@ -431,27 +432,77 @@ function Airlineplanning ()
             fprintf ('Profit:          %10.1f  \n', profit_low);
         end
         fprintf ('\n') 
-        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat)   (profit)\n');
+        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total(indirect) (Revenue per seat)  (Revenue) (ASK)  (RASK) (CASK) (RPK) (Profit) (Yield) (ALF) (BELF)\n');
         NL      =   0;
-
+        NL_EU      =   0;
+        NL_US      =   0;
+        alf_array_EU = [];
+        alf_array_US = [];
+        belf_array_EU = [];
+        belf_array_US = [];
+        profit_array = [];
         for i = 1:Nodes
             for j = 1:Nodes
                 if sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac))>0
                     slots(i,p)=slots(i,p)+sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac));
                     NL      = NL + 1;
-                    profit=obj(varindex(i,j,1,p,'x',Nodes))*sol.Passenger(i,j);
-                    for k= 1:k_ac
-                        profit=profit+obj(varindex(i,j,k,p,'z',Nodes))*sol.Flow(i,j,k);
+                    yield=obj(varindex(i,j,1,p,'x',Nodes))*sol.PassengerDirect(i,j);
+                    pass_transfer = 0;
+                    if g(i) == 0 && g(j) ~= 0
+                        %sol.PassengerIndirect(i,j)
+                        for l = 1:Nodes
+                            %for m = 1:Nodes
+                                if l == 3
+                                    continue;
+                                end
+                                yield = yield + obj(varindex(l,j,1,p,'w',Nodes))*sol.PassengerIndirect(l,j)*(arclen(3,j,Airport_data)/(arclen(3,j,Airport_data)+arclen(l,3,Airport_data)));
+                                pass_transfer = pass_transfer + sol.PassengerIndirect(l,j);
+                            %end
+                        end
+                    elseif g(j) == 0 && g(i) ~= 0
+                        %sol.PassengerIndirect(i,j)
+                        %for l = 1:Nodes
+                            for m = 1:Nodes
+                                if m == 3
+                                    continue;
+                                end
+                                yield = yield + obj(varindex(i,m,1,p,'w',Nodes))*sol.PassengerIndirect(i,m)*(arclen(i,3,Airport_data)/(arclen(3,m,Airport_data)+arclen(i,3,Airport_data)));
+                                pass_transfer = pass_transfer + sol.PassengerIndirect(i,m);
+                            end
+                        %end
                     end
+                    profit = yield;
+                    for k= 1:k_ac
+                        profit=profit+obj(varindex(i,j,k,p,'z',Nodes))*sol.Flow(i,j,k+(p-1)*k_ac);
+                    end
+                    profit_array = [profit_array,profit];
                     for k= 1:k_ac
                         utilisation(1,k,p)=utilisation(1,k,p)+sol.Flow(i,j,k+(p-1)*k_ac)*utilisation_time(i,j,k,p);
                     end
-                    fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d)   (%5d)\n', NL, Airport_name{i}, ...
+                    revenue = obj(varindex(i,j,1,p,'x',Nodes))*(sol.Flow (i,j,1+(p-1)*k_ac)*ACData(2,1) + sol.Flow (i,j,2+(p-1)*k_ac)*ACData(2,2) + sol.Flow (i,j,3+(p-1)*k_ac)*ACData(2,3) + sol.Flow (i,j,4+(p-1)*k_ac)*ACData(2,4) + sol.Flow (i,j,5+(p-1)*k_ac)*ACData(2,5));
+                    ask = arclen(i,j,Airport_data)*(sol.Flow (i,j,1+(p-1)*k_ac)*ACData(2,1) + sol.Flow (i,j,2+(p-1)*k_ac)*ACData(2,2) + sol.Flow (i,j,3+(p-1)*k_ac)*ACData(2,3) + sol.Flow (i,j,4+(p-1)*k_ac)*ACData(2,4) + sol.Flow (i,j,5+(p-1)*k_ac)*ACData(2,5));
+                    rask = revenue/ask;
+                    cost_tot = revenue-profit;
+                    cask = cost_tot/ask;
+                    rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+pass_transfer);
+                    alf = (sol.PassengerDirect(i,j)+pass_transfer)/(sol.Flow (i,j,1+(p-1)*k_ac)*ACData(2,1) + sol.Flow (i,j,2+(p-1)*k_ac)*ACData(2,2) + sol.Flow (i,j,3+(p-1)*k_ac)*ACData(2,3) + sol.Flow (i,j,4+(p-1)*k_ac)*ACData(2,4) + sol.Flow (i,j,5+(p-1)*k_ac)*ACData(2,5));
+                    belf = (cost_tot/revenue)*alf;
+                    if i > 20 || j > 20
+                        alf_array_US = [alf_array_US,alf];
+                        belf_array_US = [belf_array_US,belf];
+                        NL_US      = NL_US + 1;
+                    else
+                        alf_array_EU = [alf_array_EU,alf];
+                        belf_array_EU = [belf_array_EU,belf];
+                        NL_EU      = NL_EU + 1;
+                    end
+                    indirect = pass_transfer /(pass_transfer + sol.PassengerDirect(i,j));
+                    fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d %5d %5d  %5d 5%d %5d %5d %5d %5d %5d %5d %5d\n', NL, Airport_name{i}, ...
                                 Airport_name{j}, sol.Flow (i,j,1+(p-1)*k_ac), sol.Flow (i,j,2+(p-1)*k_ac), ...
                                 sol.Flow (i,j,3+(p-1)*k_ac), sol.Flow (i,j,4+(p-1)*k_ac), sol.Flow(i,j,5+(p-1)*k_ac), ...
                                 sol.Flow (i,j,1+(p-1)*k_ac)+sol.Flow (i,j,2+(p-1)*k_ac)+sol.Flow(i,j,3+(p-1)*k_ac)+...
-                                sol.Flow (i,j,4+(p-1)*k_ac)+sol.Flow(i,j,5+(p-1)*k_ac), ...
-                                obj(varindex(i,j,1,p,'x',Nodes)),profit);
+                                sol.Flow (i,j,4+(p-1)*k_ac)+sol.Flow(i,j,5+(p-1)*k_ac), indirect, ...
+                                obj(varindex(i,j,1,p,'x',Nodes)), revenue, ask, rask, cask, rpk, profit, yield, alf, belf);
                     for k=1:k_ac
                         if sol.Flow(i,j,(p-1)*k_ac+k)>0 && i<=20 && j<=20  % For the EU
     %                     if sol.Flow(i,j,(p-1)*k_ac+k)>0   % For the US    
@@ -472,6 +523,17 @@ function Airlineplanning ()
             end
         end
     end
+    
+    extra_fixed_cost=0;
+    for k=1:k_ac
+        extra_fixed_cost=extra_fixed_cost-sol.values(varindex(1,1,k,p,'s', Nodes))*obj(varindex(1,1,k,p,'s', Nodes),1)+-sol.values(varindex(1,1,k,p,'e', Nodes))*obj(varindex(1,1,k,p,'e', Nodes),1);
+    end
+    
+    anlf_EU = sum(alf_array_EU)/NL_EU
+    nbelf_EU = sum(belf_array_EU)/NL_EU
+    anlf_US = sum(alf_array_US)/NL_US
+    nbelf_US = sum(belf_array_US)/NL_US
+    tot_profit = sum(profit_array)- 0.5*fixed_cost - 0.5*extra_fixed_cost
     
     fprintf('\n------------------------High Season Slots-------------------------------------\n');
     fprintf ('Used Available \n');
