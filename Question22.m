@@ -356,10 +356,14 @@ function Multicommodity ()
     fprintf('\n----------------------------Network operate-------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
     fprintf ('\n') 
-    fprintf ('Link From   To       AC1    AC2   AC3   AC4   AC5    Total (Revenue per seat)  (Revenue) (ASK)  (RASK) (CASK) (RPK) (Profit) (Yield) (ALF) (BELF)\n');
+    fprintf ('Link From   To       AC1    AC2   AC3   AC4   AC5    Total (indirect) (Revenue per seat)  (Revenue) (ASK)  (RASK) (CASK) (RPK) (Profit) (Yield) (ALF) (BELF)\n');
     NL      =   0;
-    alf_array = [];
-    belf_array = [];
+    NL_EU      =   0;
+    NL_US      =   0;
+    alf_array_EU = [];
+    alf_array_US = [];
+    belf_array_EU = [];
+    belf_array_US = [];
     profit_array = [];
     utilisation=zeros(1,k_ac);
     for i = 1:Nodes
@@ -402,18 +406,26 @@ function Multicommodity ()
                 end
                 revenue = obj(varindex(i,j,1,'x',Nodes))*(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3) + sol.Flow (i,j,4)*ACData(2,4) + sol.Flow (i,j,5)*ACData(2,5));
                 ask = arclen(i,j,Airport_data)*(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3) + sol.Flow (i,j,4)*ACData(2,4) + sol.Flow (i,j,5)*ACData(2,5));
-                rask = revenue*ask;
+                rask = revenue/ask;
                 cost_tot = revenue-profit;
                 cask = cost_tot/ask;
                 rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+pass_transfer);
                 alf = (sol.PassengerDirect(i,j)+pass_transfer)/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3) + sol.Flow (i,j,4)*ACData(2,4) + sol.Flow (i,j,5)*ACData(2,5));
-                alf_array = [alf_array,alf];
                 belf = (cost_tot/revenue)*alf;
-                belf_array = [belf_array,belf];
-                fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d)  (%5d) (5%d) (%5d) (%5d) (%5d) (%5d) (%5d) (%5d) (%5d)\n', NL, Airport_name{i}, ...
+                if i > 20 || j > 20
+                    alf_array_US = [alf_array_US,alf];
+                    belf_array_US = [belf_array_US,belf];
+                    NL_US      = NL_US + 1;
+                else
+                    alf_array_EU = [alf_array_EU,alf];
+                    belf_array_EU = [belf_array_EU,belf];
+                    NL_EU      = NL_EU + 1;
+                end
+                indirect = pass_transfer /(pass_transfer + sol.PassengerDirect(i,j));
+                fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d %5d %5d  %5d 5%d %5d %5d %5d %5d %5d %5d %5d\n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,4), sol.Flow(i,j,5), ...
-                            sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3)+sol.Flow (i,j,4)+sol.Flow(i,j,5), ...
+                            sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3)+sol.Flow (i,j,4)+sol.Flow(i,j,5), indirect, ...
                             obj(varindex(i,j,1,'x',Nodes)), revenue, ask, rask, cask, rpk, profit, yield, alf, belf);
                 for k=1:k_ac
                     if sol.Flow(i,j,k)>0 && i<=20 && j<=20  % For the EU
@@ -439,8 +451,10 @@ function Multicommodity ()
         extra_fixed_cost=extra_fixed_cost-sol.values(varindex(1,1,k,'s', Nodes))*obj(varindex(1,1,k,'s', Nodes),1)+-sol.values(varindex(1,1,k,'e', Nodes))*obj(varindex(1,1,k,'e', Nodes),1);
     end
     
-    anlf = sum(alf_array)/NL
-    nbelf = sum(belf_array)/NL
+    anlf_EU = sum(alf_array_EU)/NL_EU
+    nbelf_EU = sum(belf_array_EU)/NL_EU
+    anlf_US = sum(alf_array_US)/NL_US
+    nbelf_US = sum(belf_array_US)/NL_US
     tot_profit = sum(profit_array)- fixed_cost - extra_fixed_cost
     
     fprintf('\n------------------------Slots-------------------------------------\n');
