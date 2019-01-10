@@ -117,6 +117,7 @@ function Multicommodity ()
     %%  Constraints
         % Aurcraft cannot be used more than 10 hours a day, so 70 hours a
         % weekr
+        utilisation_time=zeros(Nodes,Nodes,k_ac);
         for k=1:k_ac
             C_time_ac=zeros(1,DV);
             for i=1:Nodes
@@ -126,6 +127,7 @@ function Multicommodity ()
                     if g(j)==0
                         TAT=max([1 TAT*2]); % TAT at the hub
                     end
+                    utilisation_time(i,j,k)=distance/ACData(1,k)+TAT;
                     C_time_ac(varindex(i,j,k,'z',Nodes))=distance/ACData(1,k)+TAT;
                 end
             end
@@ -266,6 +268,7 @@ function Multicommodity ()
     alf_array = [];
     belf_array = [];
     profit_array = [];
+    utilisation=zeros(1,k_ac);
     for i = 1:Nodes
         for j = 1:Nodes
             if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
@@ -296,6 +299,7 @@ function Multicommodity ()
                 end
                 profit = yield;
                 for k= 1:k_ac
+                    utilisation(1,k)=utilisation(1,k)+sol.Flow(i,j,k)*utilisation_time(i,j,k);
                     profit = profit + obj(varindex(i,j,k,'z',Nodes))*sol.Flow (i,j,k);
                 end
                 slots(i,1)=slots(i,1)+sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3);
@@ -346,6 +350,12 @@ function Multicommodity ()
         fprintf (' %2d       %5d     \n', slots(i,1), Airport_data(4,i));
     end
    
+    fprintf('\n------------------------Utilisation-------------------------------------\n');
+    fprintf ('                 Used Available \n');
+    for i=1:k_ac
+        fprintf ('Aircraft type %1d %2d       %5d     \n',i, utilisation(1,i), 70);
+    end
+    
     fprintf('\n------------------------Cost per AC-------------------------------------\n');
     
     for k=1:k_ac

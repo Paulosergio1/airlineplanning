@@ -138,6 +138,7 @@ function Multicommodity ()
     %%  Constraints
         % Aurcraft cannot be used more than 10 hours a day, so 70 hours a
         % weekr
+        utilisation_time=zeros(Nodes,Nodes,k_ac);
         for k=1:k_ac
             C_time_ac=zeros(1,DV);
             for i=1:Nodes
@@ -147,6 +148,7 @@ function Multicommodity ()
                     if g(j)==0
                         TAT=max([1 TAT*2]); % TAT at the hub
                     end
+                    utilisation_time(i,j,k)=distance/ACData(1,k)+TAT;
                     C_time_ac(varindex(i,j,k,'z',Nodes))=distance/ACData(1,k)+TAT;
                 end
             end
@@ -327,8 +329,10 @@ function Multicommodity ()
         end
     end
     
-    %worldmap([20 65],[-130 -60]) % For the US
-     worldmap([35 65],[-15 30]) % For the EU
+
+%     worldmap([20 65],[-130 -60]) % For the US
+    worldmap([35 65],[-15 30]) % For the EU
+
     land = shaperead('landareas.shp', 'UseGeoCoords', true);
     geoshow(land, 'FaceColor', [0.6 0.6 0.6])
     color = ['r','g','b','c','m'];
@@ -357,6 +361,7 @@ function Multicommodity ()
     alf_array = [];
     belf_array = [];
     profit_array = [];
+    utilisation=zeros(1,k_ac);
     for i = 1:Nodes
         for j = 1:Nodes
             if sum(sol.Flow(i,j,1:5))>0
@@ -392,6 +397,9 @@ function Multicommodity ()
                     profit=profit+obj(varindex(i,j,k,'z',Nodes))*sol.Flow(i,j,k);
                 end
                 profit_array = [profit_array,profit];
+                for k= 1:k_ac
+                    utilisation(1,k)=utilisation(1,k)+sol.Flow(i,j,k)*utilisation_time(i,j,k);
+                end
                 revenue = obj(varindex(i,j,1,'x',Nodes))*(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3) + sol.Flow (i,j,4)*ACData(2,4) + sol.Flow (i,j,5)*ACData(2,5));
                 ask = arclen(i,j,Airport_data)*(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3) + sol.Flow (i,j,4)*ACData(2,4) + sol.Flow (i,j,5)*ACData(2,5));
                 rask = revenue*ask;
@@ -408,8 +416,8 @@ function Multicommodity ()
                             sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3)+sol.Flow (i,j,4)+sol.Flow(i,j,5), ...
                             obj(varindex(i,j,1,'x',Nodes)), revenue, ask, rask, cask, rpk, profit, yield, alf, belf);
                 for k=1:k_ac
-%                     if sol.Flow(i,j,k)>0 && i<=20 && j<=20  % For the EU
-                    if sol.Flow(i,j,k)>0   % For the US    
+                    if sol.Flow(i,j,k)>0 && i<=20 && j<=20  % For the EU
+%                     if sol.Flow(i,j,k)>0   % For the US    
                         h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
                                 [Airport_data(2,i);Airport_data(2,j)]);
                         h.Marker = '*';
@@ -439,6 +447,13 @@ function Multicommodity ()
     fprintf ('Used Available \n');
     for i=1:Nodes
         fprintf (' %2d       %5d     \n', slots(i,1), Airport_data(4,i));
+    end
+    
+       
+    fprintf('\n------------------------Utilisation-------------------------------------\n');
+    fprintf ('                 Used Available \n');
+    for i=1:k_ac
+        fprintf ('Aircraft type %1d %2d       %5d     \n',i, utilisation(1,i), time_used*new_fleet(i,1));
     end
     
     fprintf('\n------------------------Cost per AC-------------------------------------\n');
