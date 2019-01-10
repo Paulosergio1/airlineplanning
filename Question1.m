@@ -264,17 +264,36 @@ function Multicommodity ()
     fprintf ('Link From   To         AC1    AC2   AC3    Total (Revenue per Seat)  (Revenue) (ASK)  (RASK) (CASK) (RPK) (Profit) (Yield) (ALF) (BELF)\n');
     NL      =   0;
     alf_array = [];
+    belf_array = [];
+    profit_array = [];
     for i = 1:Nodes
         for j = 1:Nodes
             if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
                 yield=obj(varindex(i,j,1,'x',Nodes))*sol.PassengerDirect(i,j);
-                if i == 3
-                    yield = yield + obj(varindex(i,j,1,'w',Nodes))*sol.PassengerIndirect(i,j)*(arclen(3,j,Airport_data)/(arclen(3,j,Airport_data)+arclen(i,3,Airport_data)));
-                elseif j == 3
-                    yield = yield + obj(varindex(i,j,1,'w',Nodes))*sol.PassengerIndirect(i,j)*(arclen(i,3,Airport_data)/(arclen(3,j,Airport_data)+arclen(i,3,Airport_data)));
+                if g(i) == 0 && g(j) ~= 0
+                    %sol.PassengerIndirect(i,j)
+                    for l = 1:Nodes
+                        %for m = 1:Nodes
+                            if l == 3
+                                continue;
+                            end
+                            yield = yield + obj(varindex(l,j,1,'w',Nodes))*sol.PassengerIndirect(l,j)*(arclen(3,j,Airport_data)/(arclen(3,j,Airport_data)+arclen(l,3,Airport_data)));
+                        %end
+                    end
+                elseif g(j) == 0 && g(i) ~= 0
+                    %sol.PassengerIndirect(i,j)
+                    %for l = 1:Nodes
+                        for m = 1:Nodes
+                            if m == 3
+                                continue;
+                            end
+                            yield = yield + obj(varindex(i,m,1,'w',Nodes))*sol.PassengerIndirect(i,m)*(arclen(i,3,Airport_data)/(arclen(3,m,Airport_data)+arclen(i,3,Airport_data)));
+                        end
+                    %end
                 end
+                profit = yield;
                 for k= 1:k_ac
-                    profit= yield+obj(varindex(i,j,k,'z',Nodes))*sol.Flow(i,j,k);
+                    profit = profit + obj(varindex(i,j,k,'z',Nodes))*sol.Flow (i,j,k);
                 end
                 slots(i,1)=slots(i,1)+sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3);
                 NL      = NL + 1;
@@ -284,10 +303,13 @@ function Multicommodity ()
                 cost_tot = revenue-profit;
                 cask = cost_tot/ask;
                 rpk = arclen(i,j,Airport_data)*sol.PassengerDirect(i,j);
+                %profit = rpk*yield - ask*cask;
+                profit_array = [profit_array,profit];
                 alf = (sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j))/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3));
                 alf_array = [alf_array,alf];
                 belf = (cost_tot/revenue)*alf;
-                fprintf (' %2d  %s   %s  %5d  %5d %5d %6d  (%5d)  (%5d) (5%d) (%5d) (%5d) (%5d) (%5d) (%5d) (%5d) (%5d)\n', NL, Airport_name{i}, ...
+                belf_array = [belf_array,belf];
+                fprintf (' %2d  %s   %s  %5d  %5d %5d %6d  %5d  %5d 5%d %5d %5d %5d %5d %5d %5d %5d\n', NL, Airport_name{i}, ...
                             Airport_name{j}, sol.Flow (i,j,1), sol.Flow (i,j,2), ...
                             sol.Flow (i,j,3), sol.Flow (i,j,1)+sol.Flow (i,j,2)+sol.Flow(i,j,3), ...
                             obj(varindex(i,j,1,'x',Nodes)), revenue, ask, rask, cask, rpk, profit, yield, alf, belf);
@@ -310,7 +332,9 @@ function Multicommodity ()
         end
     end
     
-    anlf = sum(alf_array)
+    anlf = sum(alf_array)/NL
+    nbelf = sum(belf_array)/NL
+    tot_profit = sum(profit_array)- fixed_cost
     
     
     fprintf('\n------------------------Slots-------------------------------------\n');
