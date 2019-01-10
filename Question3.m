@@ -155,6 +155,7 @@ function Airlineplanning ()
     %%  Constraints
         % Constraints need to be evaluated for both the high and low demand
         % season
+        utilisation_time=zeros(Nodes,Nodes,k_ac,season);
         for p=1:season
             % Aurcraft cannot be used more than 10 hours a day, so 70 hours a
             % weekr
@@ -168,6 +169,7 @@ function Airlineplanning ()
                             TAT=max([1 TAT*2]); % TAT at the hub
                         end
                         C_time_ac(varindex(i,j,k,p,'z',Nodes))=distance/ACData(1,k)+TAT;
+                        utilisation_time(i,j,k,p)=distance/ACData(1,k)+TAT;
                     end
                 end
                 C_time_ac(varindex(1,1,k,p,'s',Nodes))=time_used;
@@ -411,6 +413,7 @@ function Airlineplanning ()
     fprintf('AC type 5: (0) %d \n',new_fleet(5,1));
     fprintf('\n-------------------------Original fleet---------------------------\n');
     fprintf ('Objective function value:          %10.1f  \n', sol.profit);
+    utilisation=zeros(1,k_ac,season);
     for p=1:season
         sol.Passenger (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,p,'x', Nodes):varindex(Nodes, Nodes, k,p, 'x', Nodes)), Nodes, Nodes))';
         figure(p);
@@ -439,6 +442,9 @@ function Airlineplanning ()
                     profit=obj(varindex(i,j,1,p,'x',Nodes))*sol.Passenger(i,j);
                     for k= 1:k_ac
                         profit=profit+obj(varindex(i,j,k,p,'z',Nodes))*sol.Flow(i,j,k);
+                    end
+                    for k= 1:k_ac
+                        utilisation(1,k,p)=utilisation(1,k,p)+sol.Flow(i,j,k+(p-1)*k_ac)*utilisation_time(i,j,k,p);
                     end
                     fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d)   (%5d)\n', NL, Airport_name{i}, ...
                                 Airport_name{j}, sol.Flow (i,j,1+(p-1)*k_ac), sol.Flow (i,j,2+(p-1)*k_ac), ...
@@ -478,6 +484,19 @@ function Airlineplanning ()
     for i=1:Nodes
         fprintf (' %2d       %5d     \n', slots(i,2), Airport_data(4,i));
     end
+    
+        fprintf('\n------------------------Utilisation High Season-------------------------------------\n');
+    fprintf ('                 Used Available \n');
+    for i=1:k_ac
+        fprintf ('Aircraft type %1d %2d       %5d     \n',i, utilisation(1,i,1), time_used*new_fleet(i,1));
+    end
+    
+        fprintf('\n------------------------Utilisation Low Season-------------------------------------\n');
+    fprintf ('                 Used Available \n');
+    for i=1:k_ac
+        fprintf ('Aircraft type %1d %2d       %5d     \n',i, utilisation(1,i,2), time_used*new_fleet(i,1));
+    end
+    
     
     fprintf('\n------------------------Cost per AC High Season-------------------------------------\n');
     for k=1:k_ac
