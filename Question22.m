@@ -329,8 +329,10 @@ function Multicommodity ()
         end
     end
     
+
 %     worldmap([20 65],[-130 -60]) % For the US
     worldmap([35 65],[-15 30]) % For the EU
+
     land = shaperead('landareas.shp', 'UseGeoCoords', true);
     geoshow(land, 'FaceColor', [0.6 0.6 0.6])
     color = ['r','g','b','c','m'];
@@ -366,6 +368,7 @@ function Multicommodity ()
                 slots(i,1)=slots(i,1)+sum(sol.Flow(i,j,1:5));
                 NL      = NL + 1;
                 yield=obj(varindex(i,j,1,'x',Nodes))*sol.PassengerDirect(i,j);
+                pass_transfer = 0;
                 if g(i) == 0 && g(j) ~= 0
                     %sol.PassengerIndirect(i,j)
                     for l = 1:Nodes
@@ -374,6 +377,7 @@ function Multicommodity ()
                                 continue;
                             end
                             yield = yield + obj(varindex(l,j,1,'w',Nodes))*sol.PassengerIndirect(l,j)*(arclen(3,j,Airport_data)/(arclen(3,j,Airport_data)+arclen(l,3,Airport_data)));
+                            pass_transfer = pass_transfer + sol.PassengerIndirect(l,j);
                         %end
                     end
                 elseif g(j) == 0 && g(i) ~= 0
@@ -384,6 +388,7 @@ function Multicommodity ()
                                 continue;
                             end
                             yield = yield + obj(varindex(i,m,1,'w',Nodes))*sol.PassengerIndirect(i,m)*(arclen(i,3,Airport_data)/(arclen(3,m,Airport_data)+arclen(i,3,Airport_data)));
+                            pass_transfer = pass_transfer + sol.PassengerIndirect(i,m);
                         end
                     %end
                 end
@@ -400,8 +405,8 @@ function Multicommodity ()
                 rask = revenue*ask;
                 cost_tot = revenue-profit;
                 cask = cost_tot/ask;
-                rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j));
-                alf = (sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j))/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3) + sol.Flow (i,j,4)*ACData(2,4) + sol.Flow (i,j,5)*ACData(2,5));
+                rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+pass_transfer);
+                alf = (sol.PassengerDirect(i,j)+pass_transfer)/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3) + sol.Flow (i,j,4)*ACData(2,4) + sol.Flow (i,j,5)*ACData(2,5));
                 alf_array = [alf_array,alf];
                 belf = (cost_tot/revenue)*alf;
                 belf_array = [belf_array,belf];

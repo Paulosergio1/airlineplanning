@@ -273,6 +273,7 @@ function Multicommodity ()
         for j = 1:Nodes
             if sol.Flow(i,j,1)+sol.Flow(i,j,2)+sol.Flow(i,j,3)>0
                 yield=obj(varindex(i,j,1,'x',Nodes))*sol.PassengerDirect(i,j);
+                pass_transfer = 0;
                 if g(i) == 0 && g(j) ~= 0
                     %sol.PassengerIndirect(i,j)
                     for l = 1:Nodes
@@ -281,6 +282,7 @@ function Multicommodity ()
                                 continue;
                             end
                             yield = yield + obj(varindex(l,j,1,'w',Nodes))*sol.PassengerIndirect(l,j)*(arclen(3,j,Airport_data)/(arclen(3,j,Airport_data)+arclen(l,3,Airport_data)));
+                            pass_transfer = pass_transfer + sol.PassengerIndirect(l,j);
                         %end
                     end
                 elseif g(j) == 0 && g(i) ~= 0
@@ -291,6 +293,7 @@ function Multicommodity ()
                                 continue;
                             end
                             yield = yield + obj(varindex(i,m,1,'w',Nodes))*sol.PassengerIndirect(i,m)*(arclen(i,3,Airport_data)/(arclen(3,m,Airport_data)+arclen(i,3,Airport_data)));
+                            pass_transfer = pass_transfer + sol.PassengerIndirect(i,m);
                         end
                     %end
                 end
@@ -306,10 +309,10 @@ function Multicommodity ()
                 rask = revenue*ask;
                 cost_tot = revenue-profit;
                 cask = cost_tot/ask;
-                rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j));
+                rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+pass_transfer);
                 %profit = rpk*yield - ask*cask;
                 profit_array = [profit_array,profit];
-                alf = (sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j))/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3));
+                alf = (sol.PassengerDirect(i,j)+pass_transfer)/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3));
                 alf_array = [alf_array,alf];
                 belf = (cost_tot/revenue)*alf;
                 belf_array = [belf_array,belf];
