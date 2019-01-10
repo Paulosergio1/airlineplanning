@@ -302,7 +302,7 @@ function Multicommodity ()
                 rask = revenue*ask;
                 cost_tot = revenue-profit;
                 cask = cost_tot/ask;
-                rpk = arclen(i,j,Airport_data)*sol.PassengerDirect(i,j);
+                rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j));
                 %profit = rpk*yield - ask*cask;
                 profit_array = [profit_array,profit];
                 alf = (sol.PassengerDirect(i,j)+sol.PassengerIndirect(i,j))/(sol.Flow (i,j,1)*ACData(2,1) + sol.Flow (i,j,2)*ACData(2,2) + sol.Flow (i,j,3)*ACData(2,3));
