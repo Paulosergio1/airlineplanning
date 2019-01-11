@@ -340,6 +340,28 @@ function Multicommodity ()
         end
     end
     
+    figure(4);
+    worldmap([35 65],[-15 30]) % For the EU
+
+    land = shaperead('landareas.shp', 'UseGeoCoords', true);
+    geoshow(land, 'FaceColor', [0.6 0.6 0.6])
+    color = ['r','b','g','c','m'];
+    hold on
+    list=[10 1 4 17];
+    for loop=1:size(list,2)
+        i=list(loop);
+        for j=1:Nodes
+            if sol.PassengerIndirect(i,j)>0 || sol.PassengerDirect(i,j)>0
+                h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
+                    [Airport_data(2,i);Airport_data(2,j)]);
+                h.Marker = '*';
+                h.Color = color(loop);
+                h.LineWidth = ceil((sol.PassengerIndirect(i,j)+sol.PassengerDirect(i,j))/40);
+            end
+        end  
+    end
+    hold off
+    
     anlf = sum(alf_array)/NL
     nbelf = sum(belf_array)/NL
     tot_profit = sum(profit_array)- fixed_cost

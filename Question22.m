@@ -446,6 +446,28 @@ function Multicommodity ()
         end
     end
     
+    figure(4);
+    worldmap([35 65],[-15 30]) % For the EU
+
+    land = shaperead('landareas.shp', 'UseGeoCoords', true);
+    geoshow(land, 'FaceColor', [0.6 0.6 0.6])
+    color = ['r','b','g','c','m'];
+    hold on
+    list=[10 1 4 17 24];
+    for loop=1:size(list,2)
+        i=list(loop);
+        for j=1:Nodes
+            if sol.PassengerIndirect(i,j)>0 || sol.PassengerDirect(i,j)>0
+                h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
+                    [Airport_data(2,i);Airport_data(2,j)]);
+                h.Marker = '*';
+                h.Color = color(loop);
+                h.LineWidth = ceil((sol.PassengerIndirect(i,j)+sol.PassengerDirect(i,j))/40);
+            end
+        end  
+    end
+    hold off
+    
     extra_fixed_cost=0;
     for k=1:k_ac
         extra_fixed_cost=extra_fixed_cost-sol.values(varindex(1,1,k,'s', Nodes))*obj(varindex(1,1,k,'s', Nodes),1)+-sol.values(varindex(1,1,k,'e', Nodes))*obj(varindex(1,1,k,'e', Nodes),1);
