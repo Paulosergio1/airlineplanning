@@ -1,3 +1,9 @@
+%Group 8:
+%Koen den Hertog - 4457803
+%Paul van Kessel - 4453182
+%Benyamin de Leeuw - 4471121
+
+
 
 %%  Initialization    
 clc

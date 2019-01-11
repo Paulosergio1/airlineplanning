@@ -1,3 +1,9 @@
+%Group 8:
+%Koen den Hertog - 4457803
+%Paul van Kessel - 4453182
+%Benyamin de Leeuw - 4471121
+
+
 itterations=5;
 tot_passengers=zeros(itterations,2);
 for iter=1:itterations
