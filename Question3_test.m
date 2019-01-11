@@ -1,30 +1,22 @@
-%Group 8:
-%Koen den Hertog - 4457803
-%Paul van Kessel - 4453182
-%Benyamin de Leeuw - 4471121
-
-
-itterations=5;
-tot_passengers=zeros(itterations,2);
+itterations=1;
 for iter=1:itterations
+%     clearvars
+%     close all
+%     demand ()
+    clearvars
     close all
-    demand ()
-    close all
-    tot_passengers=Airlineplanning(iter,tot_passengers);
+    Airlineplanning()
 end
-hold off
-figure(20)
-bar([1 2 3 4 5],tot_passengers)
 
 
 
-
-function tot_passengers = Airlineplanning (itterations,tot_passengers)
+function Airlineplanning ()
 %%  Initialization
     addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\matlab\x64_win64');
     savepath
     addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\examples\src\matlab');
     savepath
+	clearvars
     close all
     warning('off','MATLAB:lang:badlyScopedReturnValue')
     warning('off','MATLAB:xlswrite:NoCOMServer')
@@ -34,8 +26,8 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
     filn2       =   [pwd '/Group8_results.xlsx'];
     
-    Demand(:,:,1)      =   xlsread(filn2,'new_demands', 'A1:X24'); % High season
-    Demand(:,:,2)      =   xlsread(filn2,'new_demands', 'A25:X48'); % Low season
+    Demand(:,:,1)      =   xlsread(filn2,'Demands2022', 'A1:X24');%HIGH SEASON xlsread(filn2,'new_demands', 'A1:X24');
+    Demand(:,:,2)      =   xlsread(filn2,'Demands2022', 'A1:X24');%LOW SEASON  xlsread(filn2,'new_demands', 'A25:X48');
 
     Airport_data=   xlsread(filn,'Group 8', 'C6:Z9');
     [~,Airport_name] =   xlsread(filn,'Group 8', 'C5:Z5'); 
@@ -57,7 +49,7 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
         k_ac                       =   5;
         
 %       Number of seasons
-        season=2;
+        season=1;
         
 %       Load factor
         LF = 0.75;
@@ -138,13 +130,13 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
         end
         
         for k=1:k_ac
-            obj(l,1) = 2*(-8000+ACData(6,k));
+            obj(l,1) = (-8000+ACData(6,k));
             NameDV(l,:) = ['K_stop__' num2str(k,'%02d') '   '];
             l=l+1;
         end
         
         for k=1:k_ac
-            obj(l,1) = 2*(-2000-ACData(6,k));
+            obj(l,1) = (-2000-ACData(6,k));
             NameDV(l,:) = ['K_extra_' num2str(k,'%02d') '   '];
             l=l+1;
         end
@@ -157,13 +149,12 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
     %%  Fixed cost calculation
         fixed_cost=0;
         for k=1:k_ac
-            fixed_cost=fixed_cost+2*fleet(k)*ACData(6,k);
+            fixed_cost=fixed_cost+fleet(k)*ACData(6,k);
         end
         
     %%  Constraints
         % Constraints need to be evaluated for both the high and low demand
         % season
-        utilisation_time=zeros(Nodes,Nodes,k_ac,season);
         for p=1:season
             % Aurcraft cannot be used more than 10 hours a day, so 70 hours a
             % weekr
@@ -177,7 +168,6 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
                             TAT=max([1 TAT*2]); % TAT at the hub
                         end
                         C_time_ac(varindex(i,j,k,p,'z',Nodes))=distance/ACData(1,k)+TAT;
-                        utilisation_time(i,j,k,p)=distance/ACData(1,k)+TAT;
                     end
                 end
                 C_time_ac(varindex(1,1,k,p,'s',Nodes))=time_used;
@@ -363,55 +353,10 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
     slots=zeros(Nodes,2);
 %   Write output
     new_fleet=zeros(k_ac,1);
-    % The new fleet after considering buying additional and selling
     for k=1:k_ac
-            new_fleet(k,1)=fleet(k)-cplex.Solution.x(varindex(1,1,k,1,'s',Nodes),1)+cplex.Solution.x(varindex(1,1,k,1,'e',Nodes),1);
+        new_fleet(k,1)=fleet(k)-cplex.Solution.x(varindex(1,1,k,1,'s',Nodes),1)+cplex.Solution.x(varindex(1,1,k,1,'e',Nodes),1);
     end
     
-    %Profit high season
-    profit_high=-fixed_cost*0.5;
-    for i=varindex(1,1,1,1,'x',Nodes):varindex(Nodes,Nodes,k_ac,1,'x',Nodes)
-        if isnan(obj(i,1))==0
-            profit_high=profit_high+obj(i,1)*sol.values(i);
-        end
-    end
-    for i=varindex(1,1,1,1,'w',Nodes):varindex(Nodes,Nodes,k_ac,1,'w',Nodes)
-        if isnan(obj(i,1))==0
-            profit_high=profit_high+obj(i,1)*sol.values(i);
-        end
-    end
-    for i=varindex(1,1,1,1,'z',Nodes):varindex(Nodes,Nodes,k_ac,1,'z',Nodes)
-        if isnan(obj(i,1))==0
-            profit_high=profit_high+obj(i,1)*sol.values(i);
-        end
-    end
-   
-   
-    %Profit low season
-    profit_low=-fixed_cost*0.5;
-    for i=varindex(1,1,1,2,'x',Nodes):varindex(Nodes,Nodes,k_ac,2,'x',Nodes)
-        if isnan(obj(i,1))==0
-            profit_low=profit_low+obj(i,1)*sol.values(i);
-        end
-    end
-    for i=varindex(1,1,1,2,'w',Nodes):varindex(Nodes,Nodes,k_ac,2,'w',Nodes)
-        if isnan(obj(i,1))==0
-            profit_low=profit_low+obj(i,1)*sol.values(i);
-        end
-    end
-    for i=varindex(1,1,1,2,'z',Nodes):varindex(Nodes,Nodes,k_ac,2,'z',Nodes)
-        if isnan(obj(i,1))==0
-            profit_low=profit_low+obj(i,1)*sol.values(i);
-        end
-    end
-    
-    % Adding cost for stopping/new constract
-    for i=1:k_ac
-        profit_high=profit_high+0.5*obj(varindex(1,1,i,2,'e',Nodes),1)*sol.values(varindex(1,1,i,2,'e',Nodes))+...
-        0.5*obj(varindex(1,1,i,2,'s',Nodes),1)*sol.values(varindex(1,1,i,2,'s',Nodes));
-        profit_low=profit_low+0.5*obj(varindex(1,1,i,2,'e',Nodes),1)*sol.values(varindex(1,1,i,2,'e',Nodes))+...
-        0.5*obj(varindex(1,1,i,2,'s',Nodes),1)*sol.values(varindex(1,1,i,2,'s',Nodes));
-    end
     
     fprintf('\n-------------------------Original fleet---------------------------\n');
     fprintf('AC type 1: (1) %d \n',new_fleet(1,1));
@@ -419,153 +364,31 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
     fprintf('AC type 3: (1) %d \n',new_fleet(3,1));
     fprintf('AC type 4: (0) %d \n',new_fleet(4,1));
     fprintf('AC type 5: (0) %d \n',new_fleet(5,1));
-    fprintf('\n-------------------------Original fleet---------------------------\n');
-    fprintf ('Objective function value:          %10.1f  \n', sol.profit);
-    utilisation=zeros(1,k_ac,season);
     for p=1:season
-        sol.PassengerDirect (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,p,'x', Nodes):varindex(Nodes, Nodes, k,p, 'x', Nodes)), Nodes, Nodes))';
-        sol.PassengerIndirect (:,:)   =   round(reshape(cplex.Solution.x(varindex(1,1,k,p,'w', Nodes):varindex(Nodes, Nodes, k,p, 'w', Nodes)), Nodes, Nodes))';
-        tot_passengers(itterations,p)=sum(sum(sol.PassengerDirect (:,:)))+sum(sum(sol.PassengerIndirect (:,:)));
-        figure(p);
-            worldmap([20 45],[-120 -70]) % For the US
-%         worldmap([35 65],[-15 30]) % For the EU
-        land = shaperead('landareas.shp', 'UseGeoCoords', true);
-        geoshow(land, 'FaceColor', [0.6 0.6 0.6])
-        color = ['r','g','b','c','m'];
-        hold on
         if p==1
             fprintf('\n-------------------Network operated high season------------------\n');
-            fprintf ('Profit:          %10.1f  \n', profit_high);
         else 
             fprintf('\n-------------------Network operated low season------------------\n');
-            fprintf ('Profit:          %10.1f  \n', profit_low);
         end
+        fprintf ('Objective function value:          %10.1f  \n', sol.profit);
         fprintf ('\n') 
-        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total(indirect) (Revenue per seat)  (Revenue) (ASK)  (RASK) (CASK) (RPK) (Profit) (Yield) (ALF) (BELF)\n');
+        fprintf ('Link From   To         AC1    AC2   AC3   AC4   AC5    Total (Demand) \n');
         NL      =   0;
-        NL_EU      =   0;
-        NL_US      =   0;
-        alf_array_EU = [];
-        alf_array_US = [];
-        belf_array_EU = [];
-        belf_array_US = [];
-        profit_array = [];
         for i = 1:Nodes
             for j = 1:Nodes
                 if sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac))>0
                     slots(i,p)=slots(i,p)+sum(sol.Flow(i,j,1+(p-1)*k_ac:p*k_ac));
                     NL      = NL + 1;
-                    yield=obj(varindex(i,j,1,p,'x',Nodes))*sol.PassengerDirect(i,j);
-                    pass_transfer = 0;
-                    if g(i) == 0 && g(j) ~= 0
-                        %sol.PassengerIndirect(i,j)
-                        for l = 1:Nodes
-                            %for m = 1:Nodes
-                                if l == 3 || l == j
-                                    continue;
-                                end
-                                yield = yield + obj(varindex(l,j,1,p,'w',Nodes))*sol.PassengerIndirect(l,j)*(arclen(3,j,Airport_data)/(arclen(3,j,Airport_data)+arclen(l,3,Airport_data)));
-                                pass_transfer = pass_transfer + sol.PassengerIndirect(l,j);
-                            %end
-                        end
-                    elseif g(j) == 0 && g(i) ~= 0
-                        %sol.PassengerIndirect(i,j)
-                        %for l = 1:Nodes
-                            for m = 1:Nodes
-                                if m == 3 || m == i
-                                    continue;
-                                end
-                                yield = yield + obj(varindex(i,m,1,p,'w',Nodes))*sol.PassengerIndirect(i,m)*(arclen(i,3,Airport_data)/(arclen(3,m,Airport_data)+arclen(i,3,Airport_data)));
-                                pass_transfer = pass_transfer + sol.PassengerIndirect(i,m);
-                            end
-                        %end
-                    end
-                    profit = yield;
-                    for k= 1:k_ac
-                        profit=profit+obj(varindex(i,j,k,p,'z',Nodes))*sol.Flow(i,j,k+(p-1)*k_ac);
-                    end
-                    profit_array = [profit_array,profit];
-                    for k= 1:k_ac
-                        utilisation(1,k,p)=utilisation(1,k,p)+sol.Flow(i,j,k+(p-1)*k_ac)*utilisation_time(i,j,k,p);
-                    end
-                    revenue = obj(varindex(i,j,1,p,'x',Nodes))*(sol.Flow (i,j,1+(p-1)*k_ac)*ACData(2,1) + sol.Flow (i,j,2+(p-1)*k_ac)*ACData(2,2) + sol.Flow (i,j,3+(p-1)*k_ac)*ACData(2,3) + sol.Flow (i,j,4+(p-1)*k_ac)*ACData(2,4) + sol.Flow (i,j,5+(p-1)*k_ac)*ACData(2,5));
-                    ask = arclen(i,j,Airport_data)*(sol.Flow (i,j,1+(p-1)*k_ac)*ACData(2,1) + sol.Flow (i,j,2+(p-1)*k_ac)*ACData(2,2) + sol.Flow (i,j,3+(p-1)*k_ac)*ACData(2,3) + sol.Flow (i,j,4+(p-1)*k_ac)*ACData(2,4) + sol.Flow (i,j,5+(p-1)*k_ac)*ACData(2,5));
-                    rask = revenue/ask;
-                    cost_tot = revenue-profit;
-                    cask = cost_tot/ask;
-                    rpk = arclen(i,j,Airport_data)*(sol.PassengerDirect(i,j)+pass_transfer);
-                    alf = (sol.PassengerDirect(i,j)+pass_transfer)/(sol.Flow (i,j,1+(p-1)*k_ac)*ACData(2,1) + sol.Flow (i,j,2+(p-1)*k_ac)*ACData(2,2) + sol.Flow (i,j,3+(p-1)*k_ac)*ACData(2,3) + sol.Flow (i,j,4+(p-1)*k_ac)*ACData(2,4) + sol.Flow (i,j,5+(p-1)*k_ac)*ACData(2,5));
-                    belf = (cost_tot/revenue)*alf;
-                    if i > 20 || j > 20
-                        alf_array_US = [alf_array_US,alf];
-                        belf_array_US = [belf_array_US,belf];
-                        NL_US      = NL_US + 1;
-                    else
-                        alf_array_EU = [alf_array_EU,alf];
-                        belf_array_EU = [belf_array_EU,belf];
-                        NL_EU      = NL_EU + 1;
-                    end
-                    indirect = pass_transfer /(pass_transfer + sol.PassengerDirect(i,j));
-                    fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d %5d %5d  %5d 5%d %5d %5d %5d %5d %5d %5d %5d\n', NL, Airport_name{i}, ...
+                    fprintf (' %2d  %s   %s  %5d  %5d %5d %5d %5d  %6d  (%5d) \n', NL, Airport_name{i}, ...
                                 Airport_name{j}, sol.Flow (i,j,1+(p-1)*k_ac), sol.Flow (i,j,2+(p-1)*k_ac), ...
                                 sol.Flow (i,j,3+(p-1)*k_ac), sol.Flow (i,j,4+(p-1)*k_ac), sol.Flow(i,j,5+(p-1)*k_ac), ...
                                 sol.Flow (i,j,1+(p-1)*k_ac)+sol.Flow (i,j,2+(p-1)*k_ac)+sol.Flow(i,j,3+(p-1)*k_ac)+...
-                                sol.Flow (i,j,4+(p-1)*k_ac)+sol.Flow(i,j,5+(p-1)*k_ac), indirect, ...
-                                obj(varindex(i,j,1,p,'x',Nodes)), revenue, ask, rask, cask, rpk, profit, yield, alf, belf);
-                    for k=1:k_ac
-%                         if sol.Flow(i,j,(p-1)*k_ac+k)>0 && i<=20 && j<=20  % For the EU
-                        if sol.Flow(i,j,(p-1)*k_ac+k)>0   % For the US    
-                            h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
-                                    [Airport_data(2,i);Airport_data(2,j)]);
-                            h.Marker = '*';
-                            h.Color = color(k);
-                            h.LineWidth = sol.Flow(i,j,(p-1)*k_ac+k);
-                        end
-                
-%                 x_loc=(Airport_data(1,i)+Airport_data(1,j))/2;
-%                 y_loc=(Airport_data(2,i)+Airport_data(2,j))/2;
-%                 Capacity=ACData(2,1:k_ac)*[sol.values(varindex(i,j,1,'z', Nodes)),sol.values(varindex(i,j,2,'z', Nodes)),sol.values(varindex(i,j,3,'z', Nodes))]';
-%                 textm(x_loc,y_loc,['(',num2str(Capacity), ')'])
-                    textm(Airport_data(1,i), Airport_data(2,i),Airport_name(i))
-                    end
+                                sol.Flow (i,j,4+(p-1)*k_ac)+sol.Flow(i,j,5+(p-1)*k_ac), ...
+                                Demand(i,j,p));
                 end
             end
         end
-        figure(15+p);
-        worldmap([35 65],[-15 30]) % For the EU
-
-        land = shaperead('landareas.shp', 'UseGeoCoords', true);
-        geoshow(land, 'FaceColor', [0.6 0.6 0.6])
-        color = ['r','b','g','c','m'];
-        hold on
-        list=[10 1 4 24];
-        for loop=1:size(list,2)
-            i=list(loop);
-            for j=1:Nodes
-                if sol.PassengerIndirect(i,j)>0 || sol.PassengerDirect(i,j)>0
-                    h = geoshow([Airport_data(1,i);Airport_data(1,j)],...
-                        [Airport_data(2,i);Airport_data(2,j)]);
-                    h.Marker = '*';
-                    h.Color = color(loop);
-                    h.LineWidth = ceil((sol.PassengerIndirect(i,j)+sol.PassengerDirect(i,j))/40);
-                end
-            end  
-        end
-        hold off
     end
-    
-    
-    
-    extra_fixed_cost=0;
-    for k=1:k_ac
-        extra_fixed_cost=extra_fixed_cost-sol.values(varindex(1,1,k,p,'s', Nodes))*obj(varindex(1,1,k,p,'s', Nodes),1)+-sol.values(varindex(1,1,k,p,'e', Nodes))*obj(varindex(1,1,k,p,'e', Nodes),1);
-    end
-    
-    anlf_EU = sum(alf_array_EU)/NL_EU
-    nbelf_EU = sum(belf_array_EU)/NL_EU
-    anlf_US = sum(alf_array_US)/NL_US
-    nbelf_US = sum(belf_array_US)/NL_US
-    tot_profit = sum(profit_array)- 0.5*fixed_cost - 0.5*extra_fixed_cost
     
     fprintf('\n------------------------High Season Slots-------------------------------------\n');
     fprintf ('Used Available \n');
@@ -577,41 +400,6 @@ function tot_passengers = Airlineplanning (itterations,tot_passengers)
     fprintf ('Used Available \n');
     for i=1:Nodes
         fprintf (' %2d       %5d     \n', slots(i,2), Airport_data(4,i));
-    end
-    
-        fprintf('\n------------------------Utilisation High Season-------------------------------------\n');
-    fprintf ('                 Used Available \n');
-    for i=1:k_ac
-        fprintf ('Aircraft type %1d %2d       %5d     \n',i, utilisation(1,i,1), time_used*new_fleet(i,1));
-    end
-    
-        fprintf('\n------------------------Utilisation Low Season-------------------------------------\n');
-    fprintf ('                 Used Available \n');
-    for i=1:k_ac
-        fprintf ('Aircraft type %1d %2d       %5d     \n',i, utilisation(1,i,2), time_used*new_fleet(i,1));
-    end
-    
-    
-    fprintf('\n------------------------Cost per AC High Season-------------------------------------\n');
-    for k=1:k_ac
-        cost=0;
-        for i=1:Nodes
-            for j=1:Nodes
-                cost=cost+obj(varindex(i,j,k,1,'z', Nodes))*sol.values(varindex(i,j,k,1,'z', Nodes));
-            end
-        end
-        fprintf ('Cost AC type %d:  %10.1f  \n',k, -cost);
-    end
-    
-        fprintf('\n------------------------Cost per AC Low Season-------------------------------------\n');
-    for k=1:k_ac
-        cost=0;
-        for i=1:Nodes
-            for j=1:Nodes
-                cost=cost+obj(varindex(i,j,k,2,'z', Nodes))*sol.values(varindex(i,j,k,2,'z', Nodes));
-            end
-        end
-        fprintf ('Cost AC type %d:  %10.1f  \n',k, -cost);
     end
     %% Write frequency to excel file in the group8-data tab
 
@@ -632,32 +420,42 @@ end
 
 
 function out = varindex(i,j,k,season,letter,nodes)
+%     if letter == 'x'
+%         if season==1
+%             out=(i-1)*nodes+j;
+%         else
+%             out=(i-1)*nodes+j+nodes^2;
+%         end
+%     elseif letter == 'w'
+%         if season==1
+%             out=(i-1)*nodes+j+2*nodes^2;
+%         else
+%             out=(i-1)*nodes+j+3*nodes^2;
+%         end
+%     elseif letter == 'z'
+%         if season==1
+%             out=(i-1)*nodes+j+4*nodes^2+(k-1)*nodes^2;
+%         else
+%             out=(i-1)*nodes+j+9*nodes^2+(k-1)*nodes^2;
+%         end
+%     elseif letter == 's'% gives index for K-stop variable
+%         out=4*nodes^2+10*nodes^2+k;
+%     elseif letter == 'e'% gives index for K-extra variable
+%         out=4*nodes^2+10*nodes^2+k+5;
+%     end   
+        % Function given the variable index for each DV (i,j,k) the letter
+        % denotes wheter you would like to have the variable x,w,z or k. 
     if letter == 'x'
-        if season==1
-            out=(i-1)*nodes+j;
-        else
-            out=(i-1)*nodes+j+nodes^2;
-        end
+        out=(i-1)*nodes+j;
     elseif letter == 'w'
-        if season==1
-            out=(i-1)*nodes+j+2*nodes^2;
-        else
-            out=(i-1)*nodes+j+3*nodes^2;
-        end
+        out=(i-1)*nodes+j+nodes^2;
     elseif letter == 'z'
-        if season==1
-            out=(i-1)*nodes+j+4*nodes^2+(k-1)*nodes^2;
-        else
-            out=(i-1)*nodes+j+9*nodes^2+(k-1)*nodes^2;
-        end
+        out=(i-1)*nodes+j+2*nodes^2+(k-1)*nodes^2;
     elseif letter == 's'% gives index for K-stop variable
-        out=4*nodes^2+10*nodes^2+k;
+        out=2*nodes^2+5*nodes^2+k;
     elseif letter == 'e'% gives index for K-extra variable
-        out=4*nodes^2+10*nodes^2+k+5;
+        out=2*nodes^2+5*nodes^2+k+5;
     end   
-%         Function given the variable index for each DV (i,j,k) the letter
-%         denotes wheter you would like to have the variable x,w,z or k. 
-
 end
 
 
@@ -678,7 +476,7 @@ function out = arclen(airport_i,airport_j,Airport_data)
 end
 
 function demand ()
-    %%  Determine inputsni
+    %%  Determine input
 %   Select input file and sheet
     filn        =   [pwd '/AE4423_Datasheets.xlsx'];
     filn2       =   [pwd '/Group8_results.xlsx'];
