@@ -4,15 +4,13 @@ for iter=1:itterations
     close all
     demand ()
     close all
-    tot_passengers=Airlineplanning(iter,tot_passengers);
+    Airlineplanning(itterations,tot_passengers)
 end
-hold off
-bar([1 2 3 4 5],tot_passengers)
 
 
 
 
-function tot_passengers = Airlineplanning (itterations,tot_passengers)
+function Airlineplanning (itterations,tot_passengers)
 %%  Initialization
     addpath('C:\Program Files\IBM\ILOG\CPLEX_Studio128\cplex\matlab\x64_win64');
     savepath
