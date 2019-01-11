@@ -459,7 +459,7 @@ function Multicommodity ()
     geoshow(land, 'FaceColor', [0.6 0.6 0.6])
     color = ['r','b','g','c','m'];
     hold on
-    list=[10 1 4 17 24];
+    list=[10 1 4 24];
     for loop=1:size(list,2)
         i=list(loop);
         for j=1:Nodes
